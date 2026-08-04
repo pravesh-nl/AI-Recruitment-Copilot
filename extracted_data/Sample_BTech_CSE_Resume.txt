@@ -1,0 +1,17 @@
+Aarav Mehta
+Email: aarav.mehta@example.com | Phone: +91 98765 43210 | Pune, India
+Career Objective
+Motivated B.Tech CSE student seeking software internship.
+Education
+B.Tech CSE, XYZ Institute of Technology (2024-2028)
+CGPA: 8.74/10
+Skills
+C++, Java, Python, HTML, CSS, JavaScript, React, Node.js, MySQL, Git
+Projects
+Student Management System: Built CRUD web app using Node.js and MySQL.
+Weather App: Real-time weather using API and JavaScript.
+Certifications
+Python Essentials, SQL Fundamentals, Web Development Bootcamp
+Achievements
+Solved 300+ coding problems; Finalist in college hackathon.
+

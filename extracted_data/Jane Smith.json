@@ -1,0 +1,41 @@
+{
+    "name": "Jane Smith",
+    "email": "jane.smith@email.com",
+    "phone": "+1 987-654-3210",
+    "skills": [
+        "C++",
+        "Computer Vision",
+        "Domains: Machine Learning",
+        "FastAPI",
+        "Frameworks: React",
+        "JavaScript",
+        "Machine Learning",
+        "Next.js",
+        "Node.js",
+        "Programming: Python",
+        "Python",
+        "React"
+    ],
+    "education": [
+        "B.E in Computer Engineering",
+        "XYZ Institute of Technology (2020 - 2024)",
+        "Cgpa: 9.1/10"
+    ],
+    "projects": [
+        "Smart Expense Tracker",
+        "Developed an Expense Tracker app using React and Node.js.",
+        "Real-time Object Detection System",
+        "Built a Detection System using OpenCV and Python."
+    ],
+    "certifications": [
+        "Microsoft Azure Fundamentals Certification",
+        "Google Machine Learning Course"
+    ],
+    "experience": [
+        "Data Science Intern",
+        "DataCorp Analytics | May 2023 - July 2023",
+        "Acquired hands-on Experience building predictive models.",
+        "B.E in Computer Engineering",
+        "EXPERIENCE"
+    ]
+}

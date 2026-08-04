@@ -1,0 +1,29 @@
+Jane Smith 
+Seattle, WA 
+jane.smith@email.com 
++1 987-654-3210 
+ 
+EDUCATION 
+B.E in Computer Engineering 
+XYZ Institute of Technology (2020 - 2024) 
+Cgpa: 9.1/10 
+ 
+SKILLS 
+Programming: Python, C++, JavaScript 
+Frameworks: React, Next.js, FastAPI, Node.js 
+Domains: Machine Learning, Computer Vision 
+ 
+EXPERIENCE 
+Data Science Intern 
+DataCorp Analytics | May 2023 - July 2023 
+Acquired hands-on Experience building predictive models. 
+ 
+PROJECTS 
+Smart Expense Tracker 
+Developed an Expense Tracker app using React and Node.js. 
+Real-time Object Detection System 
+Built a Detection System using OpenCV and Python. 
+ 
+CERTIFICATIONS 
+Microsoft Azure Fundamentals Certification 
+Google Machine Learning Course 

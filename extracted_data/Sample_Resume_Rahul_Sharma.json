@@ -1,0 +1,39 @@
+{
+    "name": "Cgpa: 8.75/10",
+    "email": "rahul.sharma@gmail.com",
+    "phone": "+91 98765 43210",
+    "skills": [
+        "Artificial Intelligence",
+        "C++",
+        "CSS",
+        "Data Analytics",
+        "Docker",
+        "FastAPI",
+        "Flask",
+        "Git",
+        "GitHub",
+        "HTML",
+        "Java",
+        "JavaScript",
+        "Machine Learning",
+        "MySQL",
+        "NumPy",
+        "Pandas",
+        "Python",
+        "React",
+        "SQL"
+    ],
+    "education": [
+        "ber, and spaCy."
+    ],
+    "projects": [
+        "Built a resume parsing system extracting candidate information from PDF/DOCX using Python,",
+        "Student Attendance System"
+    ],
+    "certifications": [],
+    "experience": [
+        "Machine Learning, and Web Development. Experienced in building AI-powered applications, REST",
+        "Experience",
+        "Software Development Intern \u2013 XYZ Technologies Pvt. Ltd."
+    ]
+}

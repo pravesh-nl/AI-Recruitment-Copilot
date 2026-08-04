@@ -1,0 +1,46 @@
+Rahul Sharma
+Software Engineer | Python Developer | AI Enthusiast
+Mumbai, Maharashtra | +91 98765 43210 | rahul.sharma@gmail.com
+LinkedIn: linkedin.com/in/rahulsharma | GitHub: github.com/rahulsharma
+Professional Summary
+Highly motivated Computer Science graduate with strong knowledge of Python, SQL, FastAPI,
+Machine Learning, and Web Development. Experienced in building AI-powered applications, REST
+APIs, and automation tools.
+Education
+Bachelor of Technology (Computer Science Engineering)
+ABC Institute of Technology, Mumbai University (2022–2026)
+CGPA: 8.75/10
+Technical Skills
+Programming: Python, Java, C++, SQL
+Web: HTML, CSS, JavaScript, React
+Frameworks: FastAPI, Flask
+Databases: MySQL, SQLite
+AI & Data: Machine Learning, Pandas, NumPy
+Tools: Git, Docker, VS Code
+Experience
+Software Development Intern – XYZ Technologies Pvt. Ltd.
+May 2025 – July 2025
+ Developed REST APIs using FastAPI.
+ Automated Excel reports using Python.
+ Improved API response time by 30%.
+ Collaborated with a team of five developers.
+Projects
+AI Resume Parser
+Built a resume parsing system extracting candidate information from PDF/DOCX using Python,
+FastAPI, pdfplumber, and spaCy.
+Student Attendance System
+Developed a web-based attendance management application using Flask and MySQL.
+Certifications
+ Oracle AI Foundations
+ Google Data Analytics Professional Certificate
+ IBM Python for Data Science
+Achievements
+ Finalist – National Hackathon 2025
+ Top 5% in Coding Competition
+
+ Dean's Merit Scholarship
+Languages
+English, Hindi
+Interests
+Artificial Intelligence, Open Source, Competitive Programming
+

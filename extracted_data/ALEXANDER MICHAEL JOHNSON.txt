@@ -1,0 +1,134 @@
+                               ALEXANDER MICHAEL JOHNSON 
+ 
+        alex.johnson.dev@gmail.com 
+   +1 415-889-7645 
+   linkedin.com/in/alexjohnson 
+       github.com/alexjohnson 
+ 
+══════════════════════════════════════════════ 
+ 
+PROFILE 
+ 
+Passionate Software Engineer with experience in AI, Machine Learning, 
+Cloud Computing and Backend Development. Interested in scalable 
+applications and intelligent automation. 
+ 
+══════════════════════════════════════════════ 
+ 
+CORE COMPETENCIES 
+ 
+Python | Java | C++ | FastAPI | Flask | Django 
+React | Next.js | HTML | CSS | JavaScript 
+Docker | Kubernetes | Git | GitHub 
+AWS | Azure | GCP 
+PostgreSQL | MySQL | MongoDB 
+Machine Learning | Deep Learning 
+Computer Vision | NLP 
+Pandas | NumPy | Scikit-learn 
+Leadership | Communication | Problem Solving 
+ 
+══════════════════════════════════════════════ 
+ 
+ACADEMIC QUALIFICATIONS 
+ 
+Bachelor of Technology (Computer Science Engineering) 
+University of California 
+2020 – 2024 
+CGPA : 9.18 
+ 
+Higher Secondary (Science) 
+Green Valley Public School 
+Percentage : 91% 
+ 
+══════════════════════════════════════════════ 
+ 
+PROFESSIONAL EXPERIENCE 
+ 
+Software Engineering Intern 
+Google LLC 
+May 2023 – August 2023 
+ 
+• Developed REST APIs using FastAPI. 
+• Reduced API response time by 38%. 
+• Worked with PostgreSQL and Docker. 
+• Collaborated with ML Engineers. 
+ 
+Machine Learning Intern 
+IBM 
+ 
+January 2023 – April 2023 
+ 
+• Built Resume Classification Model. 
+• Improved prediction accuracy by 12%. 
+• Used TensorFlow and Scikit-learn. 
+ 
+══════════════════════════════════════════════ 
+ 
+MAJOR PROJECTS 
+ 
+AI Recruitment Copilot 
+ 
+Developed an intelligent resume parser using 
+spaCy, FastAPI, Streamlit and SQLite. 
+ 
+Expense Tracker System 
+ 
+Created a finance tracker using 
+Python, Flask and MySQL. 
+ 
+Medical Appointment Booking System 
+ 
+Developed secure authentication, 
+REST APIs and database integration. 
+ 
+Crime Detection using Deep Learning 
+ 
+Implemented CNN models for 
+image classification. 
+ 
+══════════════════════════════════════════════ 
+ 
+PROFESSIONAL CERTIFICATIONS 
+ 
+Google Data Analytics Professional Certificate 
+ 
+Oracle AI Foundations Associate 
+ 
+AWS Certified Cloud Practitioner 
+ 
+Microsoft Azure AI Fundamentals (AI-900) 
+ 
+IBM Data Science Professional Certificate 
+ 
+Infosys Springboard Artificial Intelligence 
+ 
+NPTEL Joy of Computing using Python 
+ 
+Coursera Machine Learning Specialization 
+ 
+══════════════════════════════════════════════ 
+ 
+LANGUAGES 
+ 
+English 
+Spanish 
+French 
+ 
+══════════════════════════════════════════════ 
+ 
+ACHIEVEMENTS 
+ 
+Hackathon Winner 
+ 
+Google Build with AI Participant 
+ 
+Top 5 Finalist - Smart India Hackathon 
+ 
+══════════════════════════════════════════════ 
+ 
+INTERESTS 
+ 
+Artificial Intelligence 
+Cyber Security 
+Open Source 
+Cloud Computing 

@@ -1,0 +1,31 @@
+{
+    "name": "Cgpa: 8.74/10",
+    "email": "aarav.mehta@example.com",
+    "phone": "+91 98765 43210",
+    "skills": [
+        "C++",
+        "CSS",
+        "Git",
+        "HTML",
+        "Java",
+        "JavaScript",
+        "MySQL",
+        "Node.js",
+        "Python",
+        "React"
+    ],
+    "education": [
+        "B.Tech CSE, XYZ Institute of Technology (2024-2028)"
+    ],
+    "projects": [
+        "Weather App: Real-time weather using API and JavaScript."
+    ],
+    "certifications": [
+        "Python Essentials, SQL Fundamentals, Web Development Bootcamp",
+        "Achievements",
+        "Solved 300+ coding problems; Finalist in college hackathon."
+    ],
+    "experience": [
+        "Motivated B.Tech CSE student seeking software internship."
+    ]
+}
