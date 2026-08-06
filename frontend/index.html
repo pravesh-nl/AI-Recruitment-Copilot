@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>AI Recruitment Copilot</title>
+
+<link rel="stylesheet" href="style.css">
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+
+</head>
+
+<body>
+
+<!-- ========================= -->
+<!-- SIDEBAR -->
+<!-- ========================= -->
+
+<div class="sidebar">
+
+    <div class="logo">
+
+        <div class="logo-icon">
+            <i class="fa-solid fa-user-tie"></i>
+        </div>
+
+        <div>
+            <h2>Recruitment</h2>
+            <span>Copilot</span>
+        </div>
+
+    </div>
+
+    <ul class="menu">
+
+        <li class="active">
+            <i class="fa-solid fa-file-arrow-up"></i>
+            Resume Upload
+        </li>
+
+        <li>
+            <i class="fa-solid fa-users"></i>
+            Candidates
+        </li>
+
+        <li>
+            <i class="fa-solid fa-briefcase"></i>
+            Job Postings
+        </li>
+
+        <li>
+            <i class="fa-solid fa-chart-line"></i>
+            Analytics
+        </li>
+
+        <li>
+            <i class="fa-solid fa-gear"></i>
+            Settings
+        </li>
+
+    </ul>
+
+</div>
+
+<!-- ========================= -->
+<!-- MAIN -->
+<!-- ========================= -->
+
+<div class="main">
+
+<header>
+
+<h1>Resume Parsing & Candidate Profiling</h1>
+
+<p>
+Upload and process resumes to create structured candidate profiles.
+</p>
+
+</header>
+
+<!-- ========================= -->
+<!-- TOP SECTION -->
+<!-- ========================= -->
+
+<div class="top-section">
+
+<!-- ========================= -->
+<!-- LEFT -->
+<!-- ========================= -->
+
+<div class="card upload-card">
+
+<h2>
+<i class="fa-solid fa-file-arrow-up"></i>
+Upload Resume
+</h2>
+
+<div class="upload-area" id="dropArea">
+
+<i class="fa-solid fa-cloud-arrow-up upload-big-icon"></i>
+
+<h3>Drag & Drop Resume Here</h3>
+
+<p>or</p>
+
+<input
+type="file"
+id="resumeInput"
+accept=".pdf,.doc,.docx"
+multiple
+style="display:none;">
+
+<button id="browseBtn">
+Browse Files
+</button>
+
+<div id="selectedFiles"></div>
+
+<button id="uploadBtn" class="upload-btn">
+
+<i class="fa-solid fa-upload"></i>
+
+Upload Resume
+
+</button>
+
+</div>
+
+</div>
+
+<!-- ========================= -->
+<!-- RIGHT -->
+<!-- ========================= -->
+
+<div class="card">
+
+<h2>
+
+<i class="fa-solid fa-chart-simple"></i>
+
+Parsing Progress
+
+</h2>
+
+<div class="progress-bar">
+
+<div
+id="progressFill"
+class="progress-fill">
+
+</div>
+
+</div>
+
+<p id="progressStatus">
+
+Waiting for Resume Upload...
+
+</p>
+
+<div class="stats">
+        <div class="stat-card">
+
+        <div class="icon orange">
+            <i class="fa-solid fa-file-lines"></i>
+        </div>
+
+        <div class="stat-title">
+            Resume Processed
+        </div>
+
+        <div
+            class="stat-value"
+            id="resumeProcessed">
+            0
+        </div>
+
+    </div>
+
+    <div class="stat-card">
+
+        <div class="icon yellow">
+            <i class="fa-solid fa-bullseye"></i>
+        </div>
+
+        <div class="stat-title">
+            Parsing Accuracy
+        </div>
+
+        <div
+            class="stat-value"
+            id="parsingAccuracy">
+            0%
+        </div>
+
+    </div>
+
+    <div class="stat-card">
+
+        <div class="icon green">
+            <i class="fa-solid fa-user-check"></i>
+        </div>
+
+        <div class="stat-title">
+            Profiles Created
+        </div>
+
+        <div
+            class="stat-value"
+            id="profilesCreated">
+            0
+        </div>
+
+    </div>
+
+</div>
+
+<hr>
+
+<!-- ========================= -->
+<!-- EXTRACTED INFORMATION -->
+<!-- ========================= -->
+
+<div class="extract-section">
+
+<h2>
+
+<i class="fa-solid fa-address-card"></i>
+
+Extracted Information
+
+</h2>
+
+<p class="subtitle">
+
+Showing the most recently processed resume.
+
+</p>
+
+<div
+id="candidateInfo"
+class="candidate-box">
+
+<div class="empty-box">
+
+<i class="fa-regular fa-folder-open"></i>
+
+<p>
+
+No resume uploaded yet.
+
+</p>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+<!-- ========================= -->
+<!-- RECENT CANDIDATES -->
+<!-- ========================= -->
+
+<div class="table-card">
+
+<div class="table-title">
+
+<i class="fa-solid fa-users"></i>
+
+Recently Processed Candidates
+
+</div>
+
+<table>
+
+<thead>
+
+<tr>
+
+<th>Name</th>
+
+<th>Email</th>
+
+<th>Phone</th>
+
+<th>Status</th>
+
+<th>Action</th>
+
+</tr>
+
+</thead>
+
+<tbody id="candidateTable">
+
+<tr>
+
+<td colspan="5" class="no-data">
+
+No Candidates Found
+
+</td>
+
+</tr>
+
+</tbody>
+
+</table>
+
+</div>
+<!-- ========================= -->
+<!-- CANDIDATE PROFILE MODAL -->
+<!-- ========================= -->
+
+<div id="candidateModal" class="modal">
+
+    <div class="modal-content">
+
+        <span class="close-modal" id="closeModal">
+
+            &times;
+
+        </span>
+
+        <h2>
+
+            <i class="fa-solid fa-user"></i>
+
+            Candidate Profile
+
+        </h2>
+
+        <div id="modalBody">
+
+            <!-- Filled dynamically -->
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ========================= -->
+<!-- LOADER -->
+<!-- ========================= -->
+
+<div id="loaderOverlay" class="loader-overlay">
+
+    <div class="loader-box">
+
+        <div class="spinner"></div>
+
+        <h3>
+
+            Processing Resume...
+
+        </h3>
+
+        <p>
+
+            Please wait while we parse candidate information.
+
+        </p>
+
+    </div>
+
+</div>
+
+<!-- ========================= -->
+<!-- TOAST -->
+<!-- ========================= -->
+
+<div id="toast" class="toast">
+
+    Resume uploaded successfully.
+
+</div>
+
+<!-- ========================= -->
+<!-- FOOTER -->
+<!-- ========================= -->
+
+<footer>
+
+    <p>
+
+        © 2026 AI Recruitment Copilot • Resume Parsing System
+
+    </p>
+
+</footer>
+
+<!-- ========================= -->
+<!-- SCRIPT -->
+<!-- ========================= -->
+
+<script src="script.js"></script>
+
+</body>
+
+</html>

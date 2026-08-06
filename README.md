@@ -1,11 +1,19 @@
 
-# AI Recruitment Copilot
+# AI Recruitment & Talent Management Copilot
 
 ## Milestone 1: Resume Parsing & Candidate Profiling
+Install all required packages::
 
----
-
-# 1. Project Introduction
+FastAPI → Backend API
+Uvicorn → Runs the API
+python-multipart → Upload PDF/DOCX files
+PyPDF + pdfplumber → Extract text from PDFs
+python-docx → Read Word documents
+spaCy → Process and analyze extracted text
+Pandas → Store and analyze structured data
+SQLAlchemy → Save results in a database
+Streamlit → Build the frontend interface
+python-dotenv → Securely manage API keys and configuration
 
 ### What is AI Recruitment Copilot?
 

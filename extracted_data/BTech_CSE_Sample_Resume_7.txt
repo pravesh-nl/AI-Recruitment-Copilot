@@ -1,0 +1,20 @@
+Full Name
+Neha Kulkarni
+Email
+neha.kulkarni24@email.com
+Phone
++91 9812345678
+Education
+B.Tech in Computer Science & Engineering, Greenfield Institute of Technology (2023-2027),
+CGPA: 9.1/10
+Skills
+C, C++, Java, Python, HTML, CSS, JavaScript, React.js, SQL, Git, DBMS, OOP
+Projects
+AI Attendance System; Campus Placement Portal; Expense Tracker
+Certifications
+Google Cloud Computing Foundations; AWS Academy Cloud Foundations; NPTEL Programming
+in Java; Cisco Introduction to Cybersecurity
+Experience
+Software Development Intern at InnovateX Technologies Pvt. Ltd. (May 2026 - Jul 2026).
+Developed React components, REST APIs, optimized SQL queries, and collaborated using Git.
+

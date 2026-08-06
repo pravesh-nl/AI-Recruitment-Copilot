@@ -6,9 +6,10 @@ from app.models.upload_history import UploadHistory
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from app.services.parser import parse_resume
 from app.services.extractor import extract_candidate_details
-
+from datetime import datetime
 from app.database import SessionLocal
 from app.models.candidate import Candidate
+
 
 router = APIRouter()
 
@@ -18,101 +19,123 @@ EXTRACTED_FOLDER = "extracted_data"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(EXTRACTED_FOLDER, exist_ok=True)
 
+from typing import List
 
 @router.post("/upload")
-async def upload_resume(file: UploadFile = File(...)):
+async def upload_resume(files: List[UploadFile] = File(...)):
 
-    allowed_extensions = [".pdf", ".docx"]
-
-    extension = os.path.splitext(file.filename)[1].lower()
-
-    if extension not in [".pdf", ".docx"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Only PDF and DOCX files are allowed."
-        )
-
-    # Save resume
-    file_path = os.path.join(UPLOAD_FOLDER, file.filename)
-
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    # Parse resume
-    raw_text = parse_resume(file_path)
-
-    # Save raw text
-    text_filename = os.path.splitext(file.filename)[0] + ".txt"
-    text_path = os.path.join(EXTRACTED_FOLDER, text_filename)
-
-    with open(text_path, "w", encoding="utf-8") as f:
-        f.write(raw_text)
-
-    # Extract structured information
-    candidate_data = extract_candidate_details(raw_text)
-
-    # Save JSON
-    json_filename = os.path.splitext(file.filename)[0] + ".json"
-    json_path = os.path.join(EXTRACTED_FOLDER, json_filename)
-
-    with open(json_path, "w", encoding="utf-8") as f:
-        json.dump(candidate_data, f, indent=4)
-
-    # Store in SQLite
     db = SessionLocal()
+    uploaded_candidates = []
 
-# Count every upload
-    db.add(UploadHistory())
-    db.commit()
+    try:
 
-# Check if candidate already exists
-    existing = None
+        for file in files:
 
-    if candidate_data.get("email"):
-        existing = (
-        db.query(Candidate)
-        .filter(Candidate.email == candidate_data["email"])
-        .first()
-    )
+            # -------------------------
+            # Validate File
+            # -------------------------
+            extension = os.path.splitext(file.filename)[1].lower()
 
-    if existing:
+            if extension not in [".pdf", ".docx"]:
+                continue
 
-        existing.name = candidate_data.get("name", "")
-        existing.phone = candidate_data.get("phone", "")
-        existing.education = json.dumps(candidate_data.get("education", []))
-        existing.skills = json.dumps(candidate_data.get("skills", []))
-        existing.certifications = json.dumps(candidate_data.get("certifications", []))
-        existing.projects = json.dumps(candidate_data.get("projects", []))
-        existing.experience = json.dumps(candidate_data.get("experience", []))
-        existing.resume_path = file_path
+            # -------------------------
+            # Save Resume
+            # -------------------------
+            file_path = os.path.join(UPLOAD_FOLDER, file.filename)
 
-        db.commit()
-        db.refresh(existing)
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
 
-        candidate = existing
+            # -------------------------
+            # Parse Resume
+            # -------------------------
+            raw_text = parse_resume(file_path)
 
-    else:
+            # -------------------------
+            # Save TXT
+            # -------------------------
+            text_filename = os.path.splitext(file.filename)[0] + ".txt"
+            text_path = os.path.join(EXTRACTED_FOLDER, text_filename)
 
-        candidate = Candidate(
-            name=candidate_data.get("name", ""),
-            email=candidate_data.get("email", ""),
-            phone=candidate_data.get("phone", ""),
-            education=json.dumps(candidate_data.get("education", [])),
-            skills=json.dumps(candidate_data.get("skills", [])),
-            certifications=json.dumps(candidate_data.get("certifications", [])),
-            projects=json.dumps(candidate_data.get("projects", [])),
-            experience=json.dumps(candidate_data.get("experience", [])),
-            resume_path=file_path
-    )
+            with open(text_path, "w", encoding="utf-8") as f:
+                f.write(raw_text)
 
-    db.add(candidate)
-    db.commit()
-    db.refresh(candidate)
+            # -------------------------
+            # Extract Details
+            # -------------------------
+            candidate_data = extract_candidate_details(raw_text)
 
-    db.close()
+            # -------------------------
+            # Save JSON
+            # -------------------------
+            json_filename = os.path.splitext(file.filename)[0] + ".json"
+            json_path = os.path.join(EXTRACTED_FOLDER, json_filename)
 
-    return {
-        "message": "Resume uploaded successfully",
-        "candidate_id": candidate.id,
-        "candidate": candidate_data
-    }
+            with open(json_path, "w", encoding="utf-8") as f:
+                json.dump(candidate_data, f, indent=4)
+
+            # -------------------------
+            # Upload History
+            # -------------------------
+            db.add(UploadHistory())
+            db.commit()
+
+            email = candidate_data.get("email", "").strip().lower()
+
+            existing = None
+
+            if email:
+                existing = (
+                    db.query(Candidate)
+                    .filter(Candidate.email == email)
+                    .first()
+                )
+
+            if existing:
+
+                existing.name = candidate_data.get("name", "")
+                existing.phone = candidate_data.get("phone", "")
+                existing.education = json.dumps(candidate_data.get("education", []))
+                existing.skills = json.dumps(candidate_data.get("skills", []))
+                existing.certifications = json.dumps(candidate_data.get("certifications", []))
+                existing.projects = json.dumps(candidate_data.get("projects", []))
+                existing.experience = json.dumps(candidate_data.get("experience", []))
+                existing.resume_path = file_path
+
+                # ADD THIS LINE
+                existing.uploaded_at = datetime.utcnow()
+
+                db.commit()
+                db.refresh(existing)
+
+                uploaded_candidates.append(existing.id)
+
+            else:
+
+                candidate = Candidate(
+                    name=candidate_data.get("name", ""),
+                    email=email,
+                    phone=candidate_data.get("phone", ""),
+                    education=json.dumps(candidate_data.get("education", [])),
+                    skills=json.dumps(candidate_data.get("skills", [])),
+                    certifications=json.dumps(candidate_data.get("certifications", [])),
+                    projects=json.dumps(candidate_data.get("projects", [])),
+                    experience=json.dumps(candidate_data.get("experience", [])),
+                    resume_path=file_path,
+                    uploaded_at=datetime.utcnow()
+                )
+
+                db.add(candidate)
+                db.commit()
+                db.refresh(candidate)
+
+                uploaded_candidates.append(candidate.id)
+
+        return {
+            "message": f"{len(uploaded_candidates)} resumes processed successfully",
+            "candidate_ids": uploaded_candidates
+        }
+
+    finally:
+        db.close()

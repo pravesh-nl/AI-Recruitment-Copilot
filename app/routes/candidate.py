@@ -11,7 +11,11 @@ def get_all_candidates():
 
     db = SessionLocal()
 
-    candidates = db.query(Candidate).all()
+    candidates = (
+    db.query(Candidate)
+    .order_by(Candidate.uploaded_at.desc())
+    .all()
+)
 
     db.close()
 
@@ -47,7 +51,11 @@ def get_stats():
 
     profiles_created = db.query(func.count(Candidate.id)).scalar()
 
-    candidates = db.query(Candidate).all()
+    candidates = (
+    db.query(Candidate)
+    .order_by(Candidate.id.desc())
+    .all()
+)
 
     db.close()
 
