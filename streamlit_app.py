@@ -127,9 +127,10 @@ with left:
 
         st.subheader("📄 Upload Resume")
 
-        uploaded_file = st.file_uploader(
+        uploaded_files = st.file_uploader(
             "Drag and drop resumes or click to browse",
-            type=["pdf", "docx"]
+            type=["pdf", "docx"],
+            accept_multiple_files=True
         )
 
         st.caption("Supported formats: PDF, DOCX")
@@ -139,68 +140,69 @@ with left:
             use_container_width=True
         ):
 
-            if uploaded_file is None:
+            if not uploaded_files:
 
-                st.warning("Please select a resume.")
+                st.warning("Please select at least one resume.")
 
             else:
+           
 
-                files = {
-                    "file": (
-                        uploaded_file.name,
-                        uploaded_file.getvalue(),
-                        uploaded_file.type
+                total_files = len(uploaded_files)
+
+                success_count = 0
+                failed_count = 0
+
+                for index, uploaded_file in enumerate(uploaded_files):
+
+                    files = {
+                        "file": (
+                            uploaded_file.name,
+                            uploaded_file.getvalue(),
+                            uploaded_file.type
+                        )
+                    }
+
+                    # Update Progress
+                                    # Fake Upload Progress
+
+                    st.session_state.upload_progress = 20
+                   
+                  
+                    st.session_state.upload_status = f"Uploading {uploaded_file.name}"
+                    time.sleep(0.3)
+
+                    st.session_state.upload_progress = 50
+                   
+                   
+                    st.session_state.upload_status = "Parsing Resume..."
+                    time.sleep(0.3)
+
+                    response = requests.post(
+                        "http://127.0.0.1:8000/upload",
+                        files=files
                     )
-                }
 
-            # Update progress bar (RIGHT CARD)
-                st.session_state.upload_progress = 10
-                st.session_state.upload_status = "Uploading Resume..."
+                    if response.status_code == 200:
+                        success_count += 1
+                    else:
+                        failed_count += 1
+                    stats = requests.get("http://127.0.0.1:8000/stats").json()
+                    candidates = requests.get("http://127.0.0.1:8000/candidates").json()
+                    latest_candidate = candidates[-1] if candidates else None
 
-                time.sleep(0.3)
+                    st.session_state.upload_progress = 80
+                    
+                  
+                    st.session_state.upload_status = "Extracting Candidate Details..."
+                    time.sleep(0.3)
 
-                st.session_state.upload_progress = 40
-                st.session_state.upload_status = "Reading Resume..."
-
-                time.sleep(0.3)
-
-                st.session_state.upload_progress = 70
-                st.session_state.upload_status = "Extracting Candidate Details..."
-
-                response = requests.post(
-                    "http://127.0.0.1:8000/upload",
-                    files=files
-                )
-
-                st.session_state.upload_progress = 100
-                st.session_state.upload_status = "Resume Parsed Successfully"
-
-                time.sleep(0.5)
-
-                # Reset progress after completion
-                st.session_state.upload_progress = 0
-                st.session_state.upload_status = ""
-
-                if response.status_code == 200:
-
-                    st.success("Resume uploaded successfully.")
-
+                    st.session_state.upload_progress = 100
+                   
+                   
+                    st.session_state.upload_status = "Upload Completed"
+                    time.sleep(0.5)
+                    time.sleep(1)
                     st.rerun()
-
-                else:
-
-                    st.error(response.text)
-
-                if response.status_code == 200:
-
-                    st.success("Resume uploaded successfully.")
-
-                    st.rerun()
-
-                else:
-
-                    st.error(response.text)
-
 # =====================================================
 # RIGHT CARD
 # =====================================================
@@ -210,15 +212,11 @@ with right:
 
         st.subheader("📊 Parsing Progress")
 
-        display_progress = max(
-            stats["parsing_accuracy"],
-            st.session_state.upload_progress
-        )
-
-        st.progress(display_progress / 100)
-
+        st.progress(st.session_state.upload_progress / 100)
+        status = st.empty()
         if st.session_state.upload_status:
-            st.caption(st.session_state.upload_status)
+            status.info(st.session_state.upload_status)
+
 
         c1, c2, c3 = st.columns(3)
 
@@ -255,7 +253,9 @@ with right:
 )
 
         st.subheader("Extracted Information")
-
+        st.caption(
+    "Showing the most recently processed resume."
+)
         if latest_candidate:
 
             try:

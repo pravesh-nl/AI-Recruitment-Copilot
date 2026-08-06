@@ -1,127 +1,17 @@
-# 🤖 AI Recruitment Copilot
 
-uvicorn app.main:app --reload  
-python -m streamlit run streamlit_app.py
+# AI Recruitment Copilot
 
-An AI-powered Resume Parsing and Candidate Profiling System built using **FastAPI**, **Streamlit**, **spaCy**, and **SQLite**. The application automatically extracts key candidate information from PDF and DOCX resumes, stores it in a database, and displays the results through an interactive dashboard.
+## Milestone 1: Resume Parsing & Candidate Profiling
 
 ---
 
-# 📌 Features
+# 1. Project Introduction
 
-* 📄 Upload resumes in **PDF** and **DOCX** format
-* 🤖 Automatic resume parsing
-* 👤 Candidate profile generation
-* 🧠 NLP-based information extraction using **spaCy**
-* 💾 Store extracted data in SQLite
-* 📊 Interactive Streamlit Dashboard
-* 📈 Parsing Progress Indicator
-* 🎯 Weighted Parsing Accuracy
-* 📋 Candidate Management Dashboard
-* 📑 Resume Upload History
-* 🔍 Supports multiple resume formats
+### What is AI Recruitment Copilot?
 
----
+AI Recruitment Copilot is an AI-based recruitment system that automatically reads resumes and creates structured candidate profiles.
 
-# 🛠 Tech Stack
-
-## Frontend
-
-* Streamlit
-
-## Backend
-
-* FastAPI
-
-## Database
-
-* SQLite
-* SQLAlchemy ORM
-
-## NLP
-
-* spaCy (`en_core_web_lg`)
-* PhraseMatcher
-
-## File Parsing
-
-* pypdf
-* pdfplumber
-* python-docx
-
-## Other Libraries
-
-* pandas
-* requests
-* json
-* regex (re)
-
----
-
-# 📂 Project Structure
-
-```text
-AI-Recruitment-Copilot/
-
-│
-├── app/
-│   ├── main.py
-│   ├── database.py
-│   │
-│   ├── models/
-│   │      ├── candidate.py
-│   │      └── upload_history.py
-│   │
-│   ├── routes/
-│   │      ├── upload.py
-│   │      └── candidate.py
-│   │
-│   └── services/
-│          ├── parser.py
-│          └── extractor.py
-│
-├── ui/
-│      └── sidebar.py
-│
-├── uploads/
-│
-├── streamlit_app.py
-├── recruitment.db
-├── requirements.txt
-└── README.md
-```
-
----
-
-# ⚙️ How It Works
-
-```text
-User Uploads Resume
-          │
-          ▼
-FastAPI receives file
-          │
-          ▼
-Resume saved in uploads/
-          │
-          ▼
-parser.py extracts raw text
-          │
-          ▼
-extractor.py extracts details
-          │
-          ▼
-SQLite Database
-          │
-          ▼
-Streamlit Dashboard
-```
-
----
-
-# 📋 Information Extracted
-
-The system automatically extracts:
+Instead of HR manually reading every resume, the system extracts important details like:
 
 * Name
 * Email
@@ -132,340 +22,872 @@ The system automatically extracts:
 * Projects
 * Certifications
 
----
+and stores them in the database.
 
-# 📁 Supported Resume Formats
-
-* PDF (.pdf)
-* Microsoft Word (.docx)
+This saves time and improves the recruitment process.
 
 ---
 
-# 🧠 NLP Pipeline
+# 2. Problem Statement
 
-The project uses **spaCy** with the `en_core_web_lg` language model.
+Companies receive hundreds of resumes.
 
-Extraction techniques include:
+Reading each resume manually is:
 
-* Named Entity Recognition (NER)
-* Phrase Matching
-* Regular Expressions
-* Section Detection
-* Rule-Based Parsing
+* Time consuming
+* Error prone
+* Repetitive
 
----
-
-# 📊 Dashboard Features
-
-The Streamlit dashboard provides:
-
-* Resume Upload
-* Parsing Progress
-* Resume Processed Count
-* Profiles Created Count
-* Weighted Parsing Accuracy
-* Latest Extracted Candidate
-* Candidate Table
+Our system automates this process.
 
 ---
 
-# 📊 Weighted Parsing Accuracy
+# 3. Objective
 
-The parsing accuracy is calculated using weighted fields.
+Our goal is to
 
-| Field          | Weight |
-| -------------- | ------ |
-| Name           | 20%    |
-| Email          | 20%    |
-| Skills         | 20%    |
-| Education      | 15%    |
-| Phone          | 10%    |
-| Experience     | 10%    |
-| Projects       | 3%     |
-| Certifications | 2%     |
-
-Total = **100%**
-
-This provides a more realistic evaluation than simply counting filled fields.
+* Upload resumes
+* Parse them automatically
+* Extract useful information
+* Store candidate profiles
+* Display everything in an ATS-like dashboard
 
 ---
 
-# 📂 Database Schema
+# 4. Technology Stack
 
-## Candidate Table
+## Frontend
 
-| Column         |
-| -------------- |
-| id             |
-| name           |
-| email          |
-| phone          |
-| education      |
-| skills         |
-| experience     |
-| projects       |
-| certifications |
-| resume_path    |
-| uploaded_at    |
+Streamlit
+
+Why?
+
+Because it allows us to quickly build beautiful dashboards using only Python.
 
 ---
 
-## Upload History
+## Backend
 
-Stores every uploaded resume to maintain the Resume Processed counter independently from candidate profiles.
+FastAPI
+
+Why?
+
+Because it is
+
+* Fast
+* Lightweight
+* Easy to build REST APIs
+* Automatically generates API documentation
 
 ---
 
-# 🚀 Installation
+## Database
 
-## 1. Clone Repository
+SQLite
 
-```bash
-git clone https://github.com/yourusername/AI-Recruitment-Copilot.git
+Why?
 
-cd AI-Recruitment-Copilot
+* Lightweight
+* No installation required
+* Perfect for small projects
+
+---
+
+## ORM
+
+SQLAlchemy
+
+Why?
+
+Instead of writing SQL queries manually,
+
+we use Python objects.
+
+Example
+
+Instead of
+
+```sql
+SELECT * FROM candidate;
+```
+
+we write
+
+```python
+db.query(Candidate).all()
+```
+
+Much easier.
+
+---
+
+## Resume Parsing Libraries
+
+### pdfplumber
+
+Reads text from PDF resumes.
+
+---
+
+### python-docx
+
+Reads Word (.docx) resumes.
+
+---
+
+### spaCy
+
+NLP library.
+
+Used to identify
+
+* skills
+* education
+* experience
+* names
+
+from resume text.
+
+---
+
+## Other Libraries
+
+### JSON
+
+Stores lists like
+
+Skills
+
+Instead of
+
+```
+Python
+SQL
+Machine Learning
+```
+
+they are stored as
+
+```json
+["Python","SQL","Machine Learning"]
 ```
 
 ---
 
-## 2. Create Virtual Environment
+### Pandas
 
-Windows
+Displays candidate table.
 
-```bash
-python -m venv venv
+---
+
+### Requests
+
+Connects Streamlit with FastAPI.
+
+Example
+
+```python
+requests.get("/stats")
 ```
 
-Activate
+gets dashboard statistics.
 
-```bash
-venv\Scripts\activate
+---
+
+# 5. Project Structure
+
+```
+AI-Recruitment-Copilot
+
+│
+
+├── app
+│
+│   ├── main.py
+│
+│   ├── database.py
+│
+│   ├── models
+│
+│   ├── routes
+│
+│   ├── services
+│
+│   ├── schemas
+│
+│   ├── utils
+│
+│   └── extracted_data
+
+│
+
+├── uploads
+
+├── streamlit_app.py
+
+├── requirements.txt
+
+└── README.md
 ```
 
 ---
 
-## 3. Install Dependencies
+# 6. Explain Every File
 
-```bash
+---
+
+# main.py
+
+This is the entry point of FastAPI.
+
+It
+
+* starts FastAPI
+* connects routes
+* starts backend server
+
+Without this file,
+
+backend won't run.
+
+---
+
+# database.py
+
+Creates connection with SQLite database.
+
+Contains
+
+```python
+engine
+```
+
+SessionLocal
+
+Base
+
+These are required by SQLAlchemy.
+
+---
+
+# models/
+
+Contains database tables.
+
+Example
+
+Candidate
+
+UploadHistory
+
+Each class represents one SQL table.
+
+---
+
+# Candidate Model
+
+Stores
+
+* Name
+* Email
+* Phone
+* Skills
+* Education
+* Experience
+* Projects
+* Certifications
+
+---
+
+# UploadHistory Model
+
+Stores upload information like
+
+* uploaded file
+* upload time
+
+Used for Resume Processed count.
+
+---
+
+# routes/
+
+Contains APIs.
+
+There are mainly two route files.
+
+---
+
+## upload.py
+
+Handles
+
+POST /upload
+
+Flow
+
+Upload Resume
+
+↓
+
+Save Resume
+
+↓
+
+Parse Resume
+
+↓
+
+Extract Information
+
+↓
+
+Save Candidate
+
+↓
+
+Return Success
+
+---
+
+## candidate.py
+
+Contains APIs
+
+GET /candidates
+
+Returns all candidates.
+
+---
+
+GET /candidate/{id}
+
+Returns one candidate.
+
+---
+
+GET /stats
+
+Returns
+
+Resume Processed
+
+Profiles Created
+
+Parsing Accuracy
+
+---
+
+# services/
+
+Contains actual business logic.
+
+---
+
+parser.py
+
+Reads resume.
+
+Uses
+
+pdfplumber
+
+python-docx
+
+Returns plain text.
+
+---
+
+extractor.py
+
+Uses NLP.
+
+Extracts
+
+Name
+
+Email
+
+Phone
+
+Skills
+
+Education
+
+Experience
+
+Projects
+
+Certifications
+
+Returns structured dictionary.
+
+---
+
+# schemas/
+
+Contains request and response formats.
+
+Used for validation.
+
+---
+
+# utils/
+
+Contains helper functions.
+
+Makes project clean.
+
+---
+
+# uploads/
+
+Stores uploaded resumes.
+
+---
+
+# extracted_data/
+
+Stores parsed data.
+
+Useful for debugging.
+
+---
+
+# streamlit_app.py
+
+Frontend.
+
+Creates dashboard.
+
+Shows
+
+Upload Resume
+
+↓
+
+Parsing Progress
+
+↓
+
+Statistics
+
+↓
+
+Extracted Information
+
+↓
+
+Recently Processed Candidates
+
+---
+
+# requirements.txt
+
+Contains all required Python libraries.
+
+When someone runs
+
+```
 pip install -r requirements.txt
 ```
 
----
-
-## 4. Download spaCy Model
-
-```bash
-python -m spacy download en_core_web_lg
-```
+all libraries are installed automatically.
 
 ---
 
-## 5. Start FastAPI
+# 7. Backend Workflow
 
-```bash
-uvicorn app.main:app --reload
 ```
+User uploads Resume
 
-Backend URL
+↓
 
-```text
-http://127.0.0.1:8000
+Streamlit sends POST request
+
+↓
+
+FastAPI receives Resume
+
+↓
+
+Resume saved in uploads/
+
+↓
+
+Parser reads Resume
+
+↓
+
+Extractor extracts information
+
+↓
+
+Candidate stored in SQLite
+
+↓
+
+Stats updated
+
+↓
+
+Dashboard refreshed
 ```
 
 ---
 
-## 6. Start Streamlit
+# 8. APIs
 
-Open another terminal
+## POST
 
-```bash
-streamlit run streamlit_app.py
+```
+/upload
 ```
 
-Frontend URL
+Purpose
 
-```text
-http://localhost:8501
+Uploads resume.
+
+---
+
+## GET
+
+```
+/candidates
+```
+
+Returns all candidates.
+
+---
+
+## GET
+
+```
+/candidate/{id}
+```
+
+Returns one candidate.
+
+---
+
+## GET
+
+```
+/stats
+```
+
+Returns
+
+```json
+{
+ "resume_processed":5,
+ "profiles_created":5,
+ "parsing_accuracy":95
+}
 ```
 
 ---
 
-# 📚 API Endpoints
+# 9. Database Tables
 
-## Upload Resume
+Candidate
+
+Contains
 
 ```
-POST /upload
-```
+id
 
-Uploads and parses a resume.
+name
+
+email
+
+phone
+
+skills
+
+education
+
+experience
+
+projects
+
+certifications
+```
 
 ---
 
-## Get All Candidates
+UploadHistory
+
+Contains
 
 ```
-GET /candidates
-```
+id
 
-Returns all stored candidates.
+filename
+
+upload_time
+```
 
 ---
 
-## Get Candidate
+# 10. Parsing Accuracy
+
+We are using **Weighted Accuracy**.
+
+Every field has a weight.
+
+| Field          | Weight |
+| -------------- | ------ |
+| Name           | 20     |
+| Email          | 20     |
+| Phone          | 10     |
+| Skills         | 20     |
+| Education      | 15     |
+| Experience     | 10     |
+| Projects       | 3      |
+| Certifications | 2      |
+
+Maximum Score
 
 ```
-GET /candidate/{id}
+100
 ```
 
-Returns details of a specific candidate.
+Example
+
+If parser extracts
+
+Name
+
+Email
+
+Phone
+
+Skills
+
+Education
+
+Experience
+
+Projects
+
+Missing Certifications
+
+Score
+
+```
+20+20+10+20+15+10+3=98%
+```
+
+Dashboard shows average accuracy of all resumes.
 
 ---
 
-## Get Statistics
+# 11. Streamlit Dashboard Features
 
-```
-GET /stats
-```
+Upload Resume
 
-Returns:
+↓
+
+Animated Parsing Progress
+
+↓
+
+Dashboard Cards
 
 * Resume Processed
-* Profiles Created
 * Parsing Accuracy
+* Profiles Created
+
+↓
+
+Latest Candidate Information
+
+↓
+
+Recently Processed Candidates
+
+↓
+
+Expandable Candidate Profile
 
 ---
 
-# 📦 Major Libraries Used
+# 12. Why FastAPI?
 
-## FastAPI
-
-Creates REST APIs for uploading resumes and retrieving candidate data.
-
----
-
-## Streamlit
-
-Builds the interactive frontend dashboard.
+* Faster than Flask
+* Automatic API documentation
+* Async support
+* Better performance
+* Easy integration with frontend
 
 ---
 
-## spaCy
+# 13. Why Streamlit?
 
-Processes resume text using NLP techniques.
-
----
-
-## SQLAlchemy
-
-Acts as an ORM to simplify database operations.
+* Pure Python
+* No HTML required
+* Beautiful UI
+* Easy charts and tables
+* Very fast development
 
 ---
 
-## SQLite
+# 14. Why SQLAlchemy?
 
-Stores candidate profiles locally.
+Instead of SQL,
 
----
+we use Python.
 
-## pypdf
+Example
 
-Extracts text from PDF resumes.
+Without SQLAlchemy
 
----
+```sql
+INSERT INTO Candidate ...
+```
 
-## pdfplumber
+With SQLAlchemy
 
-Fallback parser for PDFs with complex layouts.
+```python
+db.add(candidate)
+db.commit()
+```
 
----
-
-## python-docx
-
-Reads Microsoft Word resumes.
-
----
-
-## pandas
-
-Displays candidate data in tabular form.
+Cleaner and easier.
 
 ---
 
-## requests
+# 15. Why spaCy?
 
-Allows Streamlit to communicate with the FastAPI backend.
+spaCy is an NLP library.
 
----
+It understands language.
 
-## JSON
+It helps identify
 
-Converts Python lists into strings before storing them in SQLite and converts them back while displaying.
+* Skills
+* Education
+* Experience
+* Organizations
+* Person Names
 
----
-
-# 💡 Current Features
-
-* PDF Resume Parsing
-* DOCX Resume Parsing
-* NLP-based Extraction
-* Skills Detection
-* Education Detection
-* Experience Detection
-* Project Detection
-* Certification Detection
-* SQLite Storage
-* Candidate Dashboard
-* Upload History
-* Weighted Parsing Accuracy
-* Responsive UI
+from resume text.
 
 ---
 
-# 🔮 Future Enhancements
+# 16. Current Features
 
-* OCR support for scanned resumes
-* AI-powered Resume Ranking
-* Job Description Matching
-* Resume Similarity Score
-* Duplicate Resume Detection
-* Export to Excel/PDF
-* Recruiter Authentication
-* Email Notifications
-* PostgreSQL/MySQL Support
-* Cloud Deployment
-
----
-
-# 📸 Screenshots
-
-> Add screenshots of:
-
-* Dashboard
-* Resume Upload
-* Candidate Profile
-* Candidate Table
-* Parsing Progress
-* Analytics Cards
+* PDF upload
+* DOCX upload
+* Resume parsing
+* Candidate profile creation
+* SQLite database storage
+* Parsing progress animation
+* Weighted parsing accuracy
+* ATS-style dashboard
+* Expandable candidate profile
+* Recently processed candidate list
 
 ---
 
-# 👨‍💻 Developed By
+# 17. Future Improvements (Milestone 2 & Beyond)
 
-**Pravesh Nirmal**
-
-B.Tech Computer Science & Engineering
-
-AI | Backend Development | FastAPI | Python | NLP
+* Resume ranking using AI
+* JD (Job Description) matching
+* Candidate recommendation
+* Resume scoring
+* Skill-gap analysis
+* AI chatbot for recruiters
+* Email notifications
+* Recruiter login
+* Resume search and filters
+* Export candidates to Excel/PDF
 
 ---
 
-# 📜 License
+# 18. README.md (GitHub)
 
-This project is developed for educational and learning purposes. Feel free to modify and extend it for personal or academic use.
+```markdown
+# AI Recruitment Copilot
+
+AI Recruitment Copilot is an AI-powered resume parsing system that automates candidate profiling for recruiters.
+
+## Features
+
+- Upload PDF and DOCX resumes
+- Automatic resume parsing
+- Candidate profile extraction
+- SQLite database storage
+- Weighted Parsing Accuracy
+- Animated parsing progress
+- ATS-style dashboard
+- Expandable candidate profiles
+- Recently processed candidates table
+
+## Tech Stack
+
+Frontend:
+- Streamlit
+
+Backend:
+- FastAPI
+
+Database:
+- SQLite
+- SQLAlchemy ORM
+
+Resume Parsing:
+- pdfplumber
+- python-docx
+- spaCy
+
+Utilities:
+- pandas
+- requests
+
+## APIs
+
+POST /upload
+
+GET /candidates
+
+GET /candidate/{id}
+
+GET /stats
+
+## Installation
+
+pip install -r requirements.txt
+
+Run Backend
+
+uvicorn app.main:app --reload
+
+Run Frontend
+
+streamlit run streamlit_app.py
+
+## Project Workflow
+
+Upload Resume
+
+↓
+
+Parse Resume
+
+↓
+
+Extract Candidate Details
+
+↓
+
+Store in SQLite
+
+↓
+
+Display Dashboard
+```
 
 ---
 
-# ⭐ If you like this project
-
-If this project helped you, consider giving it a ⭐ on GitHub to support its development!

@@ -1,0 +1,18 @@
+Full Name
+Sneha Patel
+Email
+sneha.patel@email.com
+Phone
++91 9876543213
+Education
+B.Tech in Computer Science & Engineering, XYZ Institute (2024-2028), CGPA: 8.4/10
+Skills
+C, C++, Java, Python, HTML, CSS, JavaScript, SQL, Git, OOP, DBMS
+Projects
+Student Management System (Python/MySQL); Portfolio Website (HTML/CSS/JS)
+Certifications
+Google Cloud Fundamentals; NPTEL Python for Data Science
+Experience
+Software Development Intern (Virtual), ABC Tech Pvt. Ltd. Assisted in web app
+development and testing.
+

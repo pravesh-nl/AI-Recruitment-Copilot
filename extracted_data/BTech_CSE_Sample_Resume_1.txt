@@ -1,0 +1,23 @@
+Aarav Mehta
+aarav.mehta@example.com | +91-98XXXXXX1 | LinkedIn: linkedin.com/in/aaravmehta
+Career Objective
+Motivated B.Tech CSE student seeking internship.
+Education
+B.Tech CSE, ABC Institute of Technology (2024-2028), CGPA: 8.1/10
+Skills
+C, C++, Java, Python, HTML, CSS, JavaScript, SQL, Git
+Projects
+Student Management System (Python+MySQL); Portfolio Website
+Internships/Training
+Virtual Cloud Computing Internship
+Certifications
+NPTEL Python, Google Cloud Fundamentals
+Achievements
+Hackathon participant; Coding contest finalist
+Positions
+Class Representative / Coding Club Volunteer
+Languages
+English, Hindi
+Hobbies
+Problem solving, Chess, Reading tech blogs
+

@@ -1,0 +1,33 @@
+{
+    "name": "Aditya Verma\nEmail",
+    "email": "aditya.verma@email.com",
+    "phone": "+91 9876543214",
+    "skills": [
+        "C",
+        "C++",
+        "CSS",
+        "DBMS",
+        "Git",
+        "HTML",
+        "Java",
+        "JavaScript",
+        "OOP",
+        "Python",
+        "SQL"
+    ],
+    "education": [
+        "B.Tech in Computer Science & Engineering, XYZ Institute (2024-2028), CGPA: 8.5/10"
+    ],
+    "projects": [
+        "Student Management System (Python/MySQL); Portfolio Website (HTML/CSS/JS)"
+    ],
+    "certifications": [
+        "Google Cloud Fundamentals; NPTEL Python for Data Science"
+    ],
+    "experience": [
+        "Software Development Intern (Virtual), ABC Tech Pvt. Ltd. Assisted in web app",
+        "development and testing.",
+        "B.Tech in Computer Science & Engineering, XYZ Institute (2024-2028), CGPA: 8.5/10",
+        "Experience"
+    ]
+}
