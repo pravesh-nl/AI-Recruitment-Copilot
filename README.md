@@ -1,6 +1,17 @@
 
 # AI Recruitment & Talent Management Copilot
 
+
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+cd your_project_folder
+
+python -m venv venv
+
+venv\Scripts\activate
+
+python -m pip install --upgrade pip
+
 ## Milestone 1: Resume Parsing & Candidate Profiling
 Install all required packages::
 
@@ -899,3 +910,38 @@ Display Dashboard
 
 ---
 
+------Milestone 2 — Job Posting & Candidate Matching----
+
+Milestone 2 adds a job-based candidate matching system to AI Recruitment Copilot.
+
+Features
+Create job postings with:
+Job title
+Minimum experience
+Required skills and proficiency levels
+Store and retrieve created jobs through the backend.
+Select a job and automatically rank available candidates.
+Calculate a candidate match score based on skills and experience.
+Display matching candidates with their match level.
+View detailed skill-gap analysis showing:
+Matched skills
+Skill-level gaps
+Missing skills
+Experience gap
+Skill-gap recommendations
+Main Backend Components
+
+File	Role
+routes/jobs.py	               Job creation and job retrieval APIs
+routes/matching.py	           Candidate matching and skill-gap APIs
+models/job.py	               Job and job-skill database models
+schemas.py	                   Request/response validation for jobs and matching
+services/matching.py	       Matching-score and candidate-ranking logic
+
+Main APIs 
+POST /jobs
+GET  /jobs
+GET  /matching/job/{job_id}
+GET  /matching/skill-gap/{job_id}/{candidate_id}
+
+In short: Milestone 2 transforms the system from simply parsing resumes into an actual recruitment assistant that creates jobs, evaluates candidates, ranks them, and identifies skill gaps.

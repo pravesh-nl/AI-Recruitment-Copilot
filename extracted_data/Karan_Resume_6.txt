@@ -1,0 +1,20 @@
+Full Name
+Karan Malhotra
+Email
+karan.malhotra@email.com
+Phone
++91 9123456789
+Education
+B.Tech in Computer Science & Engineering, ABC University (2023–2027)
+CGPA: 8.7/10
+Skills
+Python, Java, C++, HTML, CSS, JavaScript, React, SQL, Git, DBMS, OOP
+Projects
+AI Resume Analyzer; Online Library Management System; Personal Portfolio Website
+Certifications
+Google Cloud Computing Foundations; AWS Academy Cloud Foundations; NPTEL Programming
+in Java
+Experience
+Software Development Intern, TechNova Solutions (May–Jul 2026): Built REST APIs, fixed bugs,
+and collaborated using Git.
+

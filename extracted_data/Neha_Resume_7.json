@@ -1,0 +1,35 @@
+{
+    "name": "Neha Kulkarni",
+    "email": "neha.kulkarni24@email.com",
+    "phone": "+91 9812345678",
+    "skills": [
+        "C",
+        "C++",
+        "CSS",
+        "DBMS",
+        "Git",
+        "HTML",
+        "Java",
+        "JavaScript",
+        "OOP",
+        "Python",
+        "React.js",
+        "SQL"
+    ],
+    "education": [
+        "B.Tech in Computer Science & Engineering, Greenfield Institute of Technology (2023-2027),"
+    ],
+    "projects": [
+        "AI Attendance System; Campus Placement Portal; Expense Tracker"
+    ],
+    "certifications": [
+        "Google Cloud Computing Foundations; AWS Academy Cloud Foundations; NPTEL Programming",
+        "in Java; Cisco Introduction to Cybersecurity"
+    ],
+    "experience": [
+        "Software Development Intern at InnovateX Technologies Pvt. Ltd. (May 2026 - Jul 2026).",
+        "Developed React components, REST APIs, optimized SQL queries, and collaborated using Git.",
+        "B.Tech in Computer Science & Engineering, Greenfield Institute of Technology (2023-2027),",
+        "Experience"
+    ]
+}

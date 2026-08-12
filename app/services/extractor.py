@@ -172,49 +172,105 @@ def extract_candidate_details(text):
 
     # -----------------------------
 
-    lines = [line.strip() for line in text.split("\n") if line.strip()]
 
+    lines = [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip()
+    ]
 
+    # Common resume headings / unwanted text
+    name_blacklist = {
+        "resume",
+        "curriculum vitae",
+        "cv",
+        "contact",
+        "contact information",
+        "objective",
+        "profile",
+        "summary",
+        "education",
+        "experience",
+        "work experience",
+        "projects",
+        "certifications",
+        "skills",
+        "technical skills",
+        "languages",
+        "interests",
+        "hobbies",
+        "references",
+        "email",
+        "phone",
+        "mobile",
+        "Email"
+    }
 
-    # Look for first ALL CAPS line
+    # First try spaCy PERSON entities
+    for ent in doc.ents:
+        if ent.label_ == "PERSON":
+            candidate_name = ent.text.strip()
+            words = candidate_name.split()
 
-    for line in lines[:12]:
+            if (
+                2 <= len(words) <= 4
+                and all(word.replace("-", "").replace("'", "").isalpha()
+                        for word in words)
+            ):
+                data["name"] = candidate_name
+                break
 
-        if (
-
-            line.isupper()
-
-            and len(line.split()) >= 2
-
-            and "CONTACT" not in line
-
-            and "OBJECTIVE" not in line
-
-            and "EDUCATION" not in line
-
-        ):
-
-            data["name"] = line.title()
-
-            break
-
-
-
-    # Fallback to spaCy
-
+    # Fallback: inspect first few resume lines
     if not data["name"]:
 
-        for ent in doc.ents:
+        for line in lines[:15]:
 
-            if ent.label_ == "PERSON":
+            clean = line.strip()
+            lower = clean.lower()
 
-                if len(ent.text.split()) >= 2:
+            # Reject obvious non-name lines
+            if lower in name_blacklist:
+                continue
 
-                    data["name"] = ent.text
+            if any(
+                keyword in lower
+                for keyword in [
+                    "cgpa",
+                    "gpa",
+                    "email",
+                    "phone",
+                    "mobile",
+                    "linkedin",
+                    "github",
+                    "http",
+                    "www."
+                ]
+            ):
+                continue
 
-                    break
+            # Reject lines containing numbers
+            if any(char.isdigit() for char in clean):
+                continue
 
+            # A normal name should contain 2–4 words
+            words = clean.split()
 
+            if not (2 <= len(words) <= 4):
+                continue
+
+            # Only alphabetic name-like words
+            if all(
+                word.replace("-", "").replace("'", "").isalpha()
+                for word in words
+            ):
+                data["name"] = clean.title()
+                data["name"] = (
+                data["name"]
+                .replace("Email", "")
+                .replace("EMAIL", "")
+                .strip()
+            )
+                break
 
     # -----------------------------
 
