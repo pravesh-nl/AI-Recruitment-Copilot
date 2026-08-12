@@ -1,1588 +1,1092 @@
-/* ==========================================
-   AI Recruitment Copilot
-   script.js - Part 1
-========================================== */
+/* ==========================================================
+   AI Recruitment Copilot — script.js (Redesigned)
+   Backend API: http://127.0.0.1:8000
+   All endpoints unchanged. Only UI rendering redesigned.
+========================================================== */
 
 const API = "http://127.0.0.1:8000";
 
-// ----------------------------
-// DOM Elements
-// ----------------------------
-const resumeInput = document.getElementById("resumeInput");
-const browseBtn = document.getElementById("browseBtn");
-const uploadBtn = document.getElementById("uploadBtn");
+/* ----------------------------------------------------------
+   STATE
+---------------------------------------------------------- */
+let deletedJobIds = new Set(); // frontend-only soft delete
+let allCandidatesCache = [];   // cached for search filtering
 
-const selectedFiles = document.getElementById("selectedFiles");
-
-const progressFill = document.getElementById("progressFill");
+/* ----------------------------------------------------------
+   DOM REFS — Upload Page
+---------------------------------------------------------- */
+const resumeInput    = document.getElementById("resumeInput");
+const browseBtn      = document.getElementById("browseBtn");
+const uploadBtn      = document.getElementById("uploadBtn");
+const selectedFiles  = document.getElementById("selectedFiles");
+const progressFill   = document.getElementById("progressFill");
 const progressStatus = document.getElementById("progressStatus");
+const resumeProcessed  = document.getElementById("resumeProcessed");
+const parsingAccuracy  = document.getElementById("parsingAccuracy");
+const profilesCreated  = document.getElementById("profilesCreated");
+const candidateInfo    = document.getElementById("candidateInfo");
+const candidateTable   = document.getElementById("candidateTable");
+const loaderOverlay    = document.getElementById("loaderOverlay");
+const uploadBox        = document.querySelector(".upload-drop-zone");
 
-const resumeProcessed = document.getElementById("resumeProcessed");
-const parsingAccuracy = document.getElementById("parsingAccuracy");
-const profilesCreated = document.getElementById("profilesCreated");
+/* ----------------------------------------------------------
+   DOM REFS — Job Management Page
+---------------------------------------------------------- */
+const jobTitleInput       = document.getElementById("jobTitle");
+const minExperienceInput  = document.getElementById("minExperience");
+const jobSkillsContainer  = document.getElementById("jobSkillsContainer");
+const addSkillBtn         = document.getElementById("addSkillBtn");
+const createJobBtn        = document.getElementById("createJobBtn");
+const jobListingGrid      = document.getElementById("jobListingGrid");
+const jobCount            = document.getElementById("jobCount");
 
-const candidateInfo = document.getElementById("candidateInfo");
-const candidateTable = document.getElementById("candidateTable");
+/* ----------------------------------------------------------
+   DOM REFS — Matching Page
+---------------------------------------------------------- */
+const jobSelect          = document.getElementById("jobSelect");
+const matchCandidatesBtn = document.getElementById("matchCandidatesBtn");
+const matchingResults    = document.getElementById("matchingResults");
+const selectedJobDetails = document.getElementById("selectedJobDetails");
 
-const loaderOverlay = document.getElementById("loaderOverlay");
+/* ----------------------------------------------------------
+   DOM REFS — Shared Modal (Candidate Profile)
+---------------------------------------------------------- */
+const modal      = document.getElementById("candidateModal");
+const modalBody  = document.getElementById("modalBody");
+const closeModal = document.getElementById("closeModal");
 
-const uploadBox = document.querySelector(".upload-area");
+/* ----------------------------------------------------------
+   DOM REFS — Skill Gap Drawer
+---------------------------------------------------------- */
+const skillGapDrawer      = document.getElementById("skillGapDrawer");
+const drawerCandidateName = document.getElementById("drawerCandidateName");
+const drawerCandidateEmail= document.getElementById("drawerCandidateEmail");
+const drawerBody          = document.getElementById("drawerBody");
+const closeDrawer         = document.getElementById("closeDrawer");
 
+/* ----------------------------------------------------------
+   DOM REFS — Interview Page
+---------------------------------------------------------- */
+const generateQuestionsBtn = document.getElementById("generateQuestionsBtn");
+const generatedQuestions   = document.getElementById("generatedQuestions");
 
+/* ----------------------------------------------------------
+   TOAST
+---------------------------------------------------------- */
+function showToast(message, isError = false) {
+    const toast   = document.getElementById("toast");
+    const toastMsg = document.getElementById("toastMessage");
+    toast.classList.remove("show", "toast-error");
+    toastMsg.textContent = message;
+    if (isError) toast.classList.add("toast-error");
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 3500);
+}
 
-// ----------------------------
-// Browse Button
-// ----------------------------
-browseBtn.addEventListener("click", function () {
-    resumeInput.click();
+/* ----------------------------------------------------------
+   PROGRESS BAR
+---------------------------------------------------------- */
+function updateProgress(percent, text) {
+    progressFill.style.width = percent + "%";
+    progressStatus.innerHTML = `<strong>${percent}%</strong> — ${text}`;
+}
+
+/* ==========================================================
+   SIDEBAR NAVIGATION
+========================================================== */
+const menuItems = document.querySelectorAll(".menu-item");
+const pages     = document.querySelectorAll(".page");
+
+menuItems.forEach(item => {
+    item.addEventListener("click", () => {
+        menuItems.forEach(i => i.classList.remove("active"));
+        pages.forEach(p => p.classList.remove("active-page"));
+        item.classList.add("active");
+        const pageId = item.dataset.page;
+        document.getElementById(pageId).classList.add("active-page");
+
+        // Lazy-load matching page jobs when navigating there
+        if (pageId === "matchingPage") {
+            loadJobsIntoDropdown();
+        }
+    });
 });
 
-resumeInput.addEventListener("change", function () {
+/* ==========================================================
+   BROWSE + DRAG & DROP
+========================================================== */
+browseBtn.addEventListener("click", () => resumeInput.click());
 
-    console.log("Files:", resumeInput.files);
+resumeInput.addEventListener("change", () => showSelectedFiles(resumeInput.files));
 
-    showSelectedFiles(resumeInput.files);
-
-});
-
-// ----------------------------
-// File Selection
-// ----------------------------
-
-
-// ----------------------------
-// Drag & Drop
-// ----------------------------
 uploadBox.addEventListener("dragover", (e) => {
     e.preventDefault();
     uploadBox.classList.add("dragging");
 });
 
-uploadBox.addEventListener("dragleave", () => {
-    uploadBox.classList.remove("dragging");
-});
+uploadBox.addEventListener("dragleave", () => uploadBox.classList.remove("dragging"));
 
 uploadBox.addEventListener("drop", (e) => {
-
     e.preventDefault();
-
     uploadBox.classList.remove("dragging");
-
     resumeInput.files = e.dataTransfer.files;
-
     showSelectedFiles(resumeInput.files);
-
 });
 
-// ----------------------------
-// Show Selected Files
-// ----------------------------
+/* ----------------------------------------------------------
+   Show Selected Files
+---------------------------------------------------------- */
 function showSelectedFiles(files) {
-
     selectedFiles.innerHTML = "";
-
     if (files.length === 0) {
-
-        selectedFiles.innerHTML =
-            "<p>No file selected</p>";
-
+        selectedFiles.innerHTML = `<p class="no-files-text">No file selected</p>`;
         return;
     }
-
     Array.from(files).forEach((file, index) => {
-
         const div = document.createElement("div");
-
         div.className = "file-item";
-
         div.innerHTML = `
             <i class="fa-solid fa-file-lines"></i>
-
-            <span class="file-name">
-                ${file.name}
-            </span>
-
-            <button
-                type="button"
-                class="remove-file-btn"
-                title="Remove file"
-            >
+            <span class="file-name">${file.name}</span>
+            <button type="button" class="remove-file-btn" title="Remove file">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         `;
-
-        const removeBtn =
-            div.querySelector(".remove-file-btn");
-
-        removeBtn.addEventListener("click", () => {
-
-            removeSelectedFile(index);
-
-        });
-
+        div.querySelector(".remove-file-btn").addEventListener("click", () => removeSelectedFile(index));
         selectedFiles.appendChild(div);
-
     });
-
 }
+
 function removeSelectedFile(index) {
-
     const files = Array.from(resumeInput.files);
-
     files.splice(index, 1);
-
-    const dataTransfer = new DataTransfer();
-
-    files.forEach(file => {
-        dataTransfer.items.add(file);
-    });
-
-    resumeInput.files = dataTransfer.files;
-
+    const dt = new DataTransfer();
+    files.forEach(f => dt.items.add(f));
+    resumeInput.files = dt.files;
     showSelectedFiles(resumeInput.files);
-
 }
 
-// ----------------------------
-// Fake Progress Animation
-// ----------------------------
-function updateProgress(percent, text) {
-
-    progressFill.style.width = percent + "%";
-
-    progressStatus.innerHTML =
-        `<strong>${percent}%</strong> - ${text}`;
-
-}
-/* ==========================================
-   script.js - Part 2
-   Upload Resume
-========================================== */
-
+/* ==========================================================
+   UPLOAD RESUMES  —  POST /upload
+========================================================== */
 uploadBtn.addEventListener("click", async () => {
-
     const files = resumeInput.files;
-
-
     if (files.length === 0) {
-        alert("Please select at least one resume.");
+        showToast("Please select at least one resume.", true);
         return;
     }
+
     uploadBtn.disabled = true;
-    uploadBtn.innerHTML =
-    '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
+    uploadBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Uploading...`;
     updateProgress(0, "Starting Upload...");
-  
 
     const formData = new FormData();
-
-    for (const file of files) {
-        formData.append("files", file);
-    }
+    for (const file of files) formData.append("files", file);
 
     try {
-
         updateProgress(10, "Uploading Resumes...");
-        await new Promise(r => setTimeout(r,300));
-
+        await delay(300);
         updateProgress(30, "Reading Resumes...");
-        await new Promise(r => setTimeout(r,300));
-
+        await delay(300);
         updateProgress(50, "Parsing Candidate Details...");
-        await new Promise(r => setTimeout(r,300));
+        await delay(300);
 
-        const response = await fetch(`${API}/upload`, {
-            method: "POST",
-            body: formData
-        });
+        const response = await fetch(`${API}/upload`, { method: "POST", body: formData });
+        const data     = await response.json();
 
-        const data = await response.json();
-
-        console.log(data);
-
-        if (!response.ok)
-            throw new Error("Upload Failed");
+        if (!response.ok) throw new Error("Upload Failed");
 
         updateProgress(80, "Saving Profiles...");
-        await new Promise(r => setTimeout(r,300));
-
+        await delay(300);
         updateProgress(100, "Completed ✅");
-        await new Promise(r => setTimeout(r,500));
+        await delay(500);
 
-    }
-    catch(err){
+        selectedFiles.innerHTML = "";
+        resumeInput.value = "";
 
+        await loadStats();
+        await loadLatestCandidate();
+        await loadCandidates();
+
+        showToast(`${files.length} resume(s) uploaded successfully!`);
+
+    } catch (err) {
         console.error(err);
-
-        updateProgress(0,"Upload Failed ❌");
-
-        uploadBtn.disabled=false;
-
-        uploadBtn.innerHTML='<i class="fa-solid fa-upload"></i> Upload Resume';
-
-        return;
+        updateProgress(0, "Upload Failed ❌");
+        showToast("Upload failed. Is the backend running?", true);
+    } finally {
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = `<i class="fa-solid fa-upload"></i> Upload Resumes`;
     }
-
-   
-
-    selectedFiles.innerHTML = "";
-    resumeInput.value = "";
-
-    await new Promise(r=>setTimeout(r,500));
-
-    await loadStats();
-    await loadLatestCandidate();
-    await loadCandidates();
-   
-    uploadBtn.disabled = false;
-    uploadBtn.innerHTML =
-    '<i class="fa-solid fa-upload"></i> Upload Resume';
-
-    
-
 });
-/* ==========================================
-   script.js - Part 3
-   Dashboard Functions
-========================================== */
 
-// ----------------------------
-// Load Dashboard Stats
-// ----------------------------
+/* ==========================================================
+   STATS  —  GET /stats
+========================================================== */
 async function loadStats() {
-
     try {
-
-        const res = await fetch(`${API}/stats`,{
-            cache:"no-store"
-        });
+        const res   = await fetch(`${API}/stats`, { cache: "no-store" });
         const stats = await res.json();
-
-        resumeProcessed.textContent =
-            stats.resume_processed;
-
-        parsingAccuracy.textContent =
-            stats.parsing_accuracy + "%";
-
-        profilesCreated.textContent =
-            stats.profiles_created;
-
-    }
-
-    catch (err) {
-
+        resumeProcessed.textContent  = stats.resume_processed;
+        parsingAccuracy.textContent  = stats.parsing_accuracy + "%";
+        profilesCreated.textContent  = stats.profiles_created;
+    } catch (err) {
         console.error("Stats Error:", err);
-
     }
-
 }
-// ----------------------------
-// Load Latest Candidate
-// ----------------------------
+
+/* ==========================================================
+   LATEST CANDIDATE  —  GET /candidates
+========================================================== */
 async function loadLatestCandidate() {
-
     try {
-
-        const res = await fetch(`${API}/candidates`, {
-            cache: "no-store"
-        });
-
+        const res        = await fetch(`${API}/candidates`, { cache: "no-store" });
         const candidates = await res.json();
 
         if (candidates.length === 0) {
-
             candidateInfo.innerHTML = `
-                <div class="empty-state">
+                <div class="empty-box">
                     <i class="fa-regular fa-folder-open"></i>
                     <p>No resume uploaded yet.</p>
-                </div>
-            `;
-
+                </div>`;
             return;
         }
 
-        const c = candidates[0];
-
-        const skills =
-            JSON.parse(c.skills || "[]");
+        const c      = candidates[0];
+        const skills = safeParseJSON(c.skills, []);
 
         candidateInfo.innerHTML = `
-
             <div class="candidate-card">
-
-                <p>
-                    <strong>Name:</strong>
-                    ${c.name || "-"}
-                </p>
-
-                <p>
-                    <strong>Email:</strong>
-                    ${c.email || "-"}
-                </p>
-
-                <p>
-                    <strong>Phone:</strong>
-                    ${c.phone || "-"}
-                </p>
-
-                <p>
-                    <strong>Education:</strong>
-                    ${JSON.parse(
-                        c.education || "[]"
-                    ).join(", ")}
-                </p>
-
-                <p>
-                    <strong>Experience:</strong>
-                    ${JSON.parse(
-                        c.experience || "[]"
-                    ).join(", ")}
-                </p>
-
+                <p><strong>Name:</strong> ${c.name || "—"}</p>
+                <p><strong>Email:</strong> ${c.email || "—"}</p>
+                <p><strong>Phone:</strong> ${c.phone || "—"}</p>
+                <p><strong>Education:</strong> ${safeParseJSON(c.education, []).join(", ") || "—"}</p>
+                <p><strong>Experience:</strong> ${safeParseJSON(c.experience, []).join(", ") || "—"}</p>
                 <p class="skills-field">
-
                     <strong>Skills:</strong>
-
                     <span class="skills-container">
-
-                        ${
-                            skills.length
-                            ? skills.map(skill => `
-                                <span class="skill-card">
-                                    ${skill}
-                                </span>
-                            `).join("")
-                            : "-"
-                        }
-
+                        ${skills.length
+                            ? skills.map(s => `<span class="skill-card">${s}</span>`).join("")
+                            : "—"}
                     </span>
-
                 </p>
+                <p><strong>Projects:</strong> ${safeParseJSON(c.projects, []).join(", ") || "—"}</p>
+                <p><strong>Certifications:</strong> ${safeParseJSON(c.certifications, []).join(", ") || "—"}</p>
+            </div>`;
 
-                <p>
-                    <strong>Projects:</strong>
-                    ${JSON.parse(
-                        c.projects || "[]"
-                    ).join(", ")}
-                </p>
-
-                <p>
-                    <strong>Certifications:</strong>
-                    ${JSON.parse(
-                        c.certifications || "[]"
-                    ).join(", ")}
-                </p>
-
-            </div>
-
-        `;
-
+    } catch (err) {
+        console.error("Latest Candidate Error:", err);
     }
-
-    catch (err) {
-
-        console.error(err);
-
-    }
-
 }
 
-/* ==========================================
-   script.js - Part 4
-   Candidate Table + Modal + Initial Load
-========================================== */
-
-const modal = document.getElementById("candidateModal");
-const modalBody = document.getElementById("modalBody");
-const closeModal = document.getElementById("closeModal");
-
-// ----------------------------------
-// Load Recently Processed Candidates
-// ----------------------------------
-
+/* ==========================================================
+   CANDIDATES TABLE  —  GET /candidates
+========================================================== */
 async function loadCandidates() {
-
     try {
-
-        const response = await fetch(`${API}/candidates`,{
-            cache:"no-store"
-        });
-
+        const response   = await fetch(`${API}/candidates`, { cache: "no-store" });
         const candidates = await response.json();
+
+        // Cache the full list for search
+        allCandidatesCache = candidates;
 
         candidateTable.innerHTML = "";
 
         if (candidates.length === 0) {
-
-            candidateTable.innerHTML = `
-                <tr>
-                    <td colspan="5">
-                        <div class="empty-table">
-                            <i class="fa-regular fa-folder-open"></i>
-                            <p>No candidates available.</p>
-                        </div>
-                    </td>
-                </tr>
-            `;
-
+            candidateTable.innerHTML = `<tr><td colspan="5" class="no-data">No candidates available.</td></tr>`;
+            renderAllCandidatesTable(candidates);
             return;
         }
 
-        candidates.forEach((candidate) => {
-
+        candidates.forEach(candidate => {
             const row = document.createElement("tr");
-
             row.innerHTML = `
-
-                <td>${candidate.name || "-"}</td>
-
-                <td>${candidate.email || "-"}</td>
-
-                <td>${candidate.phone || "-"}</td>
-
+                <td>${candidate.name || "—"}</td>
+                <td>${candidate.email || "—"}</td>
+                <td>${candidate.phone || "—"}</td>
+                <td><span class="status processed">Processed</span></td>
                 <td>
-                    <span class="status processed">
-                        Processed
-                    </span>
-                </td>
-
-                <td>
-
-                    <button
-                        class="view-btn"
-                        onclick='showCandidate(${JSON.stringify(candidate)})'
-                    >
+                    <button class="view-btn" onclick='showCandidate(${JSON.stringify(candidate)})'>
                         View
                     </button>
-
-                </td>
-
-            `;
-
+                </td>`;
             candidateTable.appendChild(row);
-
         });
 
+        renderAllCandidatesTable(candidates);
+
+    } catch (err) {
+        console.error("Candidates Table Error:", err);
     }
-
-    catch (err) {
-
-        console.error("Candidate Load Error:", err);
-
-    }
-
 }
 
-
-// ----------------------------------
-// Show Candidate Profile
-// ----------------------------------
-
-function showCandidate(candidate) {
-
-    modal.style.display = "flex";
-
-    modalBody.innerHTML = `
-
-        <div class="profile-grid">
-
-            <p><strong>Name:</strong> ${candidate.name || "-"}</p>
-
-            <p><strong>Email:</strong> ${candidate.email || "-"}</p>
-
-            <p><strong>Phone:</strong> ${candidate.phone || "-"}</p>
-
-            <p><strong>Education:</strong> ${JSON.parse(candidate.education || "[]").join(", ")}</p>
-
-            <p><strong>Experience:</strong> ${JSON.parse(candidate.experience || "[]").join(", ")}</p>
-
-            <p><strong>Skills:</strong> ${JSON.parse(candidate.skills || "[]").join(", ")}</p>
-
-            <p><strong>Projects:</strong> ${JSON.parse(candidate.projects || "[]").join(", ")}</p>
-
-            <p><strong>Certifications:</strong> ${JSON.parse(candidate.certifications || "[]").join(", ")}</p>
-
-        </div>
-
-    `;
-
-}
-
-
-// ----------------------------------
-// Close Modal
-// ----------------------------------
-
-closeModal.onclick = function () {
-
-    modal.style.display = "none";
-
-};
-
-window.onclick = function (event) {
-
-    if (event.target === modal) {
-
-        modal.style.display = "none";
-
-    }
-
-};
-
-
-// ----------------------------------
-// Initial Page Load
-// ----------------------------------
-
-window.addEventListener("DOMContentLoaded", () => {
-
-    loadStats();
-
-    loadLatestCandidate();
-
-    loadCandidates();
-
-});
-/* ============================================================
-   MILESTONE 2 - JOB POSTING & CANDIDATE MATCHING
-============================================================ */
-
-// ------------------------------------------------------------
-// DOM Elements
-// ------------------------------------------------------------
-
-const jobTitleInput =
-    document.getElementById("jobTitle");
-
-const minExperienceInput =
-    document.getElementById("minExperience");
-
-const jobSkillsContainer =
-    document.getElementById("jobSkillsContainer");
-
-const addSkillBtn =
-    document.getElementById("addSkillBtn");
-
-const createJobBtn =
-    document.getElementById("createJobBtn");
-
-const jobSelect =
-    document.getElementById("jobSelect");
-
-const matchCandidatesBtn =
-    document.getElementById("matchCandidatesBtn");
-
-const matchingResults =
-    document.getElementById("matchingResults");
-
-
-// ============================================================
-// ADD SKILL ROW
-// ============================================================
-
-addSkillBtn.addEventListener("click", () => {
-
-    const row = document.createElement("div");
-
-    row.className = "job-skill-row";
-
-    row.innerHTML = `
-
-        <input
-            type="text"
-            class="job-skill-name"
-            placeholder="Skill name"
-        >
-
-        <select class="job-skill-level">
-
-            <option value="Basic">
-                Basic
-            </option>
-
-            <option value="Intermediate">
-                Intermediate
-            </option>
-
-            <option value="Advanced">
-                Advanced
-            </option>
-
-            <option value="Expert">
-                Expert
-            </option>
-
-        </select>
-
-        <button
-            type="button"
-            class="remove-skill-btn"
-            onclick="removeSkillRow(this)"
-        >
-
-            <i class="fa-solid fa-trash"></i>
-
-        </button>
-
-    `;
-
-    jobSkillsContainer.appendChild(row);
-
-});
-
-
-// ============================================================
-// REMOVE SKILL ROW
-// ============================================================
-
-function removeSkillRow(button) {
-
-    const rows =
-        jobSkillsContainer.querySelectorAll(
-            ".job-skill-row"
-        );
-
-    if (rows.length <= 1) {
-
-        alert("At least one skill is required.");
-
+/* ----------------------------------------------------------
+   Render the Candidates page table (with optional filtered list)
+---------------------------------------------------------- */
+function renderAllCandidatesTable(candidates) {
+    const allTable = document.getElementById("allCandidatesTable");
+    const badge    = document.getElementById("candidateCountBadge");
+    if (!allTable) return;
+
+    allTable.innerHTML = "";
+
+    if (candidates.length === 0) {
+        allTable.innerHTML = `<tr><td colspan="5" class="no-data">No candidates found.</td></tr>`;
+        if (badge) badge.textContent = "";
         return;
     }
 
+    candidates.forEach(candidate => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td>${candidate.name || "—"}</td>
+            <td>${candidate.email || "—"}</td>
+            <td>${candidate.phone || "—"}</td>
+            <td><span class="status processed">Processed</span></td>
+            <td>
+                <button class="view-btn" onclick='showCandidate(${JSON.stringify(candidate)})'>
+                    View
+                </button>
+            </td>`;
+        allTable.appendChild(row);
+    });
+
+    if (badge) badge.textContent = `${candidates.length} candidate${candidates.length !== 1 ? "s" : ""}`;
+}
+
+/* ----------------------------------------------------------
+   Search / Filter candidates (instant, client-side)
+---------------------------------------------------------- */
+function filterCandidates(query) {
+    const q = query.trim().toLowerCase();
+    if (!q) {
+        renderAllCandidatesTable(allCandidatesCache);
+        return;
+    }
+    const filtered = allCandidatesCache.filter(c => {
+        const name  = (c.name  || "").toLowerCase();
+        const email = (c.email || "").toLowerCase();
+        return name.includes(q) || email.includes(q);
+    });
+    renderAllCandidatesTable(filtered);
+}
+
+/* ----------------------------------------------------------
+   Show Candidate Profile Modal
+---------------------------------------------------------- */
+function showCandidate(candidate) {
+    modal.classList.add("open");
+    modal.style.display = "flex";
+    modalBody.innerHTML = `
+        <h2 style="color:var(--primary);margin-bottom:20px;font-size:20px;">
+            <i class="fa-solid fa-user" style="margin-right:10px;"></i>Candidate Profile
+        </h2>
+        <div class="profile-grid">
+            <p><strong>Name:</strong> ${candidate.name || "—"}</p>
+            <p><strong>Email:</strong> ${candidate.email || "—"}</p>
+            <p><strong>Phone:</strong> ${candidate.phone || "—"}</p>
+            <p><strong>Education:</strong> ${safeParseJSON(candidate.education, []).join(", ") || "—"}</p>
+            <p><strong>Experience:</strong> ${safeParseJSON(candidate.experience, []).join(", ") || "—"}</p>
+            <p><strong>Skills:</strong> ${safeParseJSON(candidate.skills, []).join(", ") || "—"}</p>
+            <p><strong>Projects:</strong> ${safeParseJSON(candidate.projects, []).join(", ") || "—"}</p>
+            <p><strong>Certifications:</strong> ${safeParseJSON(candidate.certifications, []).join(", ") || "—"}</p>
+        </div>`;
+}
+
+closeModal.addEventListener("click", () => {
+    modal.classList.remove("open");
+    modal.style.display = "none";
+});
+
+window.addEventListener("click", (e) => {
+    if (e.target === modal) {
+        modal.classList.remove("open");
+        modal.style.display = "none";
+    }
+});
+
+/* ==========================================================
+   SKILL GAP DRAWER — open / close
+========================================================== */
+closeDrawer.addEventListener("click", closeSkillGapDrawer);
+
+skillGapDrawer.addEventListener("click", (e) => {
+    if (e.target === skillGapDrawer) closeSkillGapDrawer();
+});
+
+function openSkillGapDrawer() {
+    skillGapDrawer.classList.add("open");
+    document.body.style.overflow = "hidden";
+}
+
+function closeSkillGapDrawer() {
+    skillGapDrawer.classList.remove("open");
+    document.body.style.overflow = "";
+}
+
+/* ==========================================================
+   JOB MANAGEMENT — ADD / REMOVE SKILL ROW
+========================================================== */
+addSkillBtn.addEventListener("click", () => {
+    const row = document.createElement("div");
+    row.className = "job-skill-row";
+    row.innerHTML = `
+        <input type="text" class="job-skill-name" placeholder="Skill name (e.g. Python)">
+        <select class="job-skill-level">
+            <option value="Basic">Basic</option>
+            <option value="Intermediate">Intermediate</option>
+            <option value="Advanced">Advanced</option>
+            <option value="Expert">Expert</option>
+        </select>
+        <button type="button" class="remove-skill-btn" onclick="removeSkillRow(this)">
+            <i class="fa-solid fa-trash"></i>
+        </button>`;
+    jobSkillsContainer.appendChild(row);
+});
+
+function removeSkillRow(button) {
+    const rows = jobSkillsContainer.querySelectorAll(".job-skill-row");
+    if (rows.length <= 1) {
+        showToast("At least one skill is required.", true);
+        return;
+    }
     button.parentElement.remove();
 }
 
-
-// ============================================================
-// CREATE JOB
-// ============================================================
-
-createJobBtn.addEventListener(
-    "click",
-    async () => {
-
-        const title =
-            jobTitleInput.value.trim();
-
-        const minExperience =
-            parseInt(
-                minExperienceInput.value
-            ) || 0;
-
-
-        if (!title) {
-
-            alert("Please enter a job title.");
-
-            return;
-        }
-
-
-        const skillRows =
-            document.querySelectorAll(
-                ".job-skill-row"
-            );
-
-
-        const skills = [];
-
-
-        for (const row of skillRows) {
-
-            const name =
-                row.querySelector(
-                    ".job-skill-name"
-                ).value.trim();
-
-            const level =
-                row.querySelector(
-                    ".job-skill-level"
-                ).value;
-
-
-            if (!name) {
-
-                alert(
-                    "Please enter all skill names."
-                );
-
-                return;
-            }
-
-
-            skills.push({
-
-                name: name,
-
-                level: level
-
-            });
-
-        }
-
-
-        createJobBtn.disabled = true;
-
-        createJobBtn.innerHTML =
-            '<i class="fa-solid fa-spinner fa-spin"></i> Creating...';
-
-
-        try {
-
-            const response =
-                await fetch(
-                    `${API}/jobs`,
-                    {
-                        method: "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json"
-                        },
-
-                        body: JSON.stringify({
-
-                            title: title,
-
-                            min_experience:
-                                minExperience,
-
-                            skills: skills
-
-                        })
-                    }
-                );
-
-
-            const data =
-                await response.json();
-
-
-            if (!response.ok) {
-
-                throw new Error(
-                    data.detail ||
-                    "Failed to create job"
-                );
-            }
-
-
-            alert(
-                "Job created successfully!"
-            );
-
-
-            // Clear form
-
-            jobTitleInput.value = "";
-
-            minExperienceInput.value = 0;
-
-
-            jobSkillsContainer.innerHTML = `
-
-                <div class="job-skill-row">
-
-                    <input
-                        type="text"
-                        class="job-skill-name"
-                        placeholder="Skill name"
-                    >
-
-                    <select
-                        class="job-skill-level"
-                    >
-
-                        <option value="Basic">
-                            Basic
-                        </option>
-
-                        <option value="Intermediate">
-                            Intermediate
-                        </option>
-
-                        <option value="Advanced">
-                            Advanced
-                        </option>
-
-                        <option value="Expert">
-                            Expert
-                        </option>
-
-                    </select>
-
-                    <button
-                        type="button"
-                        class="remove-skill-btn"
-                        onclick="removeSkillRow(this)"
-                    >
-
-                        <i class="fa-solid fa-trash"></i>
-
-                    </button>
-
-                </div>
-
-            `;
-
-
-            await loadJobs();
-
-
-            // Automatically select newly created job
-
-            jobSelect.value =
-                data.job_id;
-
-
-        }
-
-        catch (error) {
-
-            console.error(
-                "Create Job Error:",
-                error
-            );
-
-            alert(
-                error.message ||
-                "Failed to create job."
-            );
-
-        }
-
-        finally {
-
-            createJobBtn.disabled = false;
-
-            createJobBtn.innerHTML =
-                '<i class="fa-solid fa-briefcase"></i> Create Job';
-
-        }
-
-    }
-);
-
-
-// ============================================================
-// LOAD JOBS
-// ============================================================
-
-async function loadJobs() {
-
-    try {
-
-        const response =
-            await fetch(
-                `${API}/jobs`,
-                {
-                    cache: "no-store"
-                }
-            );
-
-
-        const jobs =
-            await response.json();
-
-
-        jobSelect.innerHTML = `
-
-            <option value="">
-                Select a job
-            </option>
-
-        `;
-
-
-        jobs.forEach(job => {
-
-            const option =
-                document.createElement("option");
-
-            option.value =
-                job.id;
-
-            option.textContent =
-                `${job.title} (${job.min_experience}+ years)`;
-
-            jobSelect.appendChild(option);
-
-        });
-
-    }
-
-    catch (error) {
-
-        console.error(
-            "Load Jobs Error:",
-            error
-        );
-
-    }
-}
-
-
-// ============================================================
-// MATCH CANDIDATES
-// ============================================================
-
-matchCandidatesBtn.addEventListener(
-    "click",
-    async () => {
-
-        const jobId =
-            jobSelect.value;
-
-
-        if (!jobId) {
-
-            alert(
-                "Please select a job first."
-            );
-
-            return;
-        }
-
-
-        matchingResults.innerHTML = `
-
-            <div class="empty-state">
-
-                <i class="fa-solid fa-spinner fa-spin"></i>
-
-                <p>
-                    Matching candidates...
-                </p>
-
-            </div>
-
-        `;
-
-
-        try {
-
-            const response =
-                await fetch(
-                    `${API}/matching/job/${jobId}`,
-                    {
-                        cache: "no-store"
-                    }
-                );
-
-
-            const results =
-                await response.json();
-
-
-            if (!response.ok) {
-
-                throw new Error(
-                    results.detail ||
-                    "Failed to match candidates"
-                );
-            }
-
-
-            displayMatchingResults(
-                results,
-                jobId
-            );
-
-        }
-
-        catch (error) {
-
-            console.error(
-                "Matching Error:",
-                error
-            );
-
-
-            matchingResults.innerHTML = `
-
-                <div class="empty-state">
-
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-
-                    <p>
-                        Failed to load matching candidates.
-                    </p>
-
-                </div>
-
-            `;
-
-        }
-
-    }
-);
-
-
-// ============================================================
-// DISPLAY MATCHING RESULTS
-// ============================================================
-
-function displayMatchingResults(
-    results,
-    jobId
-) {
-
-    if (!results.length) {
-
-        matchingResults.innerHTML = `
-
-            <div class="empty-state">
-
-                <i class="fa-solid fa-users"></i>
-
-                <p>
-                    No candidates available.
-                </p>
-
-            </div>
-
-        `;
-
+/* ==========================================================
+   CREATE JOB  —  POST /jobs
+========================================================== */
+createJobBtn.addEventListener("click", async () => {
+    const title         = jobTitleInput.value.trim();
+    const minExperience = parseInt(minExperienceInput.value) || 0;
+
+    if (!title) {
+        showToast("Please enter a job title.", true);
         return;
     }
 
+    const skillRows = document.querySelectorAll(".job-skill-row");
+    const skills    = [];
+
+    for (const row of skillRows) {
+        const name  = row.querySelector(".job-skill-name").value.trim();
+        const level = row.querySelector(".job-skill-level").value;
+        if (!name) {
+            showToast("Please enter all skill names.", true);
+            return;
+        }
+        skills.push({ name, level });
+    }
+
+    createJobBtn.disabled = true;
+    createJobBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Creating...`;
+
+    try {
+        const response = await fetch(`${API}/jobs`, {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ title, min_experience: minExperience, skills })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.detail || "Failed to create job");
+
+        showToast(`Job "${title}" created successfully!`);
+
+        // Reset form
+        jobTitleInput.value   = "";
+        minExperienceInput.value = 0;
+        jobSkillsContainer.innerHTML = `
+            <div class="job-skill-row">
+                <input type="text" class="job-skill-name" placeholder="Skill name (e.g. Python)">
+                <select class="job-skill-level">
+                    <option value="Basic">Basic</option>
+                    <option value="Intermediate">Intermediate</option>
+                    <option value="Advanced">Advanced</option>
+                    <option value="Expert">Expert</option>
+                </select>
+                <button type="button" class="remove-skill-btn" onclick="removeSkillRow(this)">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </div>`;
+
+        await loadJobListingGrid();
+        await loadJobsIntoDropdown();
+
+    } catch (error) {
+        console.error("Create Job Error:", error);
+        showToast(error.message || "Failed to create job.", true);
+    } finally {
+        createJobBtn.disabled = false;
+        createJobBtn.innerHTML = `<i class="fa-solid fa-briefcase"></i> Create Job`;
+    }
+});
+
+/* ==========================================================
+   LOAD JOB LISTING GRID  —  GET /jobs
+   (Used on Job Management Page)
+========================================================== */
+async function loadJobListingGrid() {
+    try {
+        const response = await fetch(`${API}/jobs`, { cache: "no-store" });
+        const jobs     = await response.json();
+
+        // Filter out soft-deleted jobs
+        const visibleJobs = jobs.filter(j => !deletedJobIds.has(j.id));
+
+        // Update count badge
+        jobCount.textContent = `${visibleJobs.length} job${visibleJobs.length !== 1 ? "s" : ""}`;
+
+        if (visibleJobs.length === 0) {
+            jobListingGrid.innerHTML = `
+                <div class="empty-state-full">
+                    <i class="fa-solid fa-briefcase"></i>
+                    <p>No jobs created yet. Use the form to add your first job posting.</p>
+                </div>`;
+            return;
+        }
+
+        jobListingGrid.innerHTML = "";
+
+        visibleJobs.forEach(job => {
+            const skills = Array.isArray(job.skills) ? job.skills : safeParseJSON(job.skills, []);
+            const card   = document.createElement("div");
+            card.className = "job-listing-card";
+            card.id = `job-card-${job.id}`;
+
+            const skillTagsHTML = skills.length
+                ? skills.map(s => `
+                    <span class="skill-tag">
+                        <span class="skill-level-dot level-${s.level ? s.level.toLowerCase() : 'basic'}"></span>
+                        ${s.name}
+                        <span style="font-weight:400;opacity:.7;font-size:11px;">${s.level || "Basic"}</span>
+                    </span>`).join("")
+                : `<span style="color:var(--text-muted);font-size:13px;">No skills defined</span>`;
+
+            card.innerHTML = `
+                <div class="jlc-top">
+                    <div class="jlc-info">
+                        <h4>${escapeHTML(job.title)}</h4>
+                        <span class="jlc-exp">
+                            <i class="fa-solid fa-clock"></i>
+                            ${job.min_experience}+ years experience required
+                        </span>
+                    </div>
+                    <div class="jlc-actions">
+                        <button class="btn-match-shortcut" onclick="goToMatch(${job.id})">
+                            <i class="fa-solid fa-magnifying-glass"></i> Match
+                        </button>
+                        <button class="btn-danger" onclick="softDeleteJob(${job.id}, '${escapeHTML(job.title)}')">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="jlc-skills">${skillTagsHTML}</div>`;
+
+            jobListingGrid.appendChild(card);
+        });
+
+    } catch (err) {
+        console.error("Load Job Listing Error:", err);
+        jobListingGrid.innerHTML = `<div class="empty-state"><i class="fa-solid fa-triangle-exclamation"></i><p>Failed to load jobs.</p></div>`;
+    }
+}
+
+/* ----------------------------------------------------------
+   Soft Delete Job (frontend-only — no backend DELETE endpoint)
+---------------------------------------------------------- */
+function softDeleteJob(jobId, title) {
+    if (!confirm(`Remove "${title}" from the list?\n\n(This is a local-only action. The job will reappear after page refresh.)`)) return;
+    deletedJobIds.add(jobId);
+    const card = document.getElementById(`job-card-${jobId}`);
+    if (card) {
+        card.style.transition = "opacity .3s, transform .3s";
+        card.style.opacity    = "0";
+        card.style.transform  = "scale(.95)";
+        setTimeout(() => card.remove(), 300);
+    }
+    // Update count
+    loadJobListingGrid();
+    // Remove from dropdowns
+    loadJobsIntoDropdown();
+    showToast(`"${title}" removed from view.`);
+}
+
+/* ----------------------------------------------------------
+   Navigate to matching page with a specific job pre-selected
+---------------------------------------------------------- */
+function goToMatch(jobId) {
+    // Switch page
+    menuItems.forEach(i => i.classList.remove("active"));
+    pages.forEach(p => p.classList.remove("active-page"));
+
+    const matchMenuItem = document.querySelector('[data-page="matchingPage"]');
+    if (matchMenuItem) matchMenuItem.classList.add("active");
+    document.getElementById("matchingPage").classList.add("active-page");
+
+    // Load jobs then select this one
+    loadJobsIntoDropdown().then(() => {
+        jobSelect.value = String(jobId);
+        updateSelectedJobDetails(jobId);
+    });
+}
+
+/* ==========================================================
+   LOAD JOBS INTO DROPDOWN  —  GET /jobs
+   (Used on Matching Page + Interview Page)
+========================================================== */
+async function loadJobsIntoDropdown() {
+    try {
+        const response = await fetch(`${API}/jobs`, { cache: "no-store" });
+        const jobs     = await response.json();
+
+        const visibleJobs = jobs.filter(j => !deletedJobIds.has(j.id));
+
+        // Matching page dropdown
+        const currentVal = jobSelect.value;
+        jobSelect.innerHTML = `<option value="">— Choose a job —</option>`;
+        visibleJobs.forEach(job => {
+            const opt = document.createElement("option");
+            opt.value       = job.id;
+            opt.textContent = `${job.title} (${job.min_experience}+ yrs)`;
+            jobSelect.appendChild(opt);
+        });
+        if (currentVal) jobSelect.value = currentVal;
+
+        // Interview page dropdown
+        const interviewJobSel = document.getElementById("interviewJob");
+        if (interviewJobSel) {
+            const ivCurrentVal = interviewJobSel.value;
+            interviewJobSel.innerHTML = `<option value="">Select job</option>`;
+            visibleJobs.forEach(job => {
+                const opt = document.createElement("option");
+                opt.value       = job.title;
+                opt.textContent = job.title;
+                interviewJobSel.appendChild(opt);
+            });
+            if (ivCurrentVal) interviewJobSel.value = ivCurrentVal;
+        }
+
+        return visibleJobs;
+
+    } catch (err) {
+        console.error("Load Jobs Dropdown Error:", err);
+        return [];
+    }
+}
+
+/* ----------------------------------------------------------
+   Show selected job info banner under controls bar
+---------------------------------------------------------- */
+function updateSelectedJobDetails(jobId) {
+    if (!jobId) {
+        selectedJobDetails.style.display = "none";
+        return;
+    }
+
+    fetch(`${API}/job/${jobId}`, { cache: "no-store" })
+        .then(r => r.json())
+        .then(job => {
+            const skills = Array.isArray(job.skills) ? job.skills : safeParseJSON(job.skills, []);
+            const tagsHTML = skills.map(s => `
+                <span class="skill-tag">
+                    <span class="skill-level-dot level-${(s.level || "basic").toLowerCase()}"></span>
+                    ${s.name}
+                </span>`).join("");
+
+            selectedJobDetails.innerHTML = `
+                <div>
+                    <div class="sjd-title">${escapeHTML(job.title)}</div>
+                    <div class="sjd-exp"><i class="fa-solid fa-clock"></i> ${job.min_experience}+ years required</div>
+                </div>
+                ${tagsHTML ? `<div class="sjd-skills">${tagsHTML}</div>` : ""}`;
+            selectedJobDetails.style.display = "flex";
+        })
+        .catch(() => {
+            selectedJobDetails.style.display = "none";
+        });
+}
+
+jobSelect.addEventListener("change", () => {
+    updateSelectedJobDetails(jobSelect.value);
+});
+
+/* ==========================================================
+   MATCH CANDIDATES  —  GET /matching/job/{jobId}
+========================================================== */
+matchCandidatesBtn.addEventListener("click", async () => {
+    const jobId = jobSelect.value;
+    if (!jobId) {
+        showToast("Please select a job first.", true);
+        return;
+    }
+
+    matchingResults.innerHTML = `
+        <div class="empty-state" style="grid-column:1/-1;padding:80px 20px;">
+            <i class="fa-solid fa-spinner fa-spin" style="font-size:28px;color:var(--primary);"></i>
+            <p style="font-size:15px;">Finding best candidates...</p>
+        </div>`;
+
+    matchCandidatesBtn.disabled = true;
+    matchCandidatesBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Matching...`;
+
+    try {
+        const response = await fetch(`${API}/matching/job/${jobId}`, { cache: "no-store" });
+        const results  = await response.json();
+
+        if (!response.ok) throw new Error(results.detail || "Failed to match candidates");
+
+        displayMatchingResults(results, jobId);
+
+    } catch (error) {
+        console.error("Matching Error:", error);
+        matchingResults.innerHTML = `
+            <div class="empty-state" style="grid-column:1/-1;">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size:22px;color:#dc2626;"></i>
+                <p>Failed to load candidates. Is the backend running?</p>
+            </div>`;
+    } finally {
+        matchCandidatesBtn.disabled = false;
+        matchCandidatesBtn.innerHTML = `<i class="fa-solid fa-magnifying-glass"></i> Find Best Candidates`;
+    }
+});
+
+/* ----------------------------------------------------------
+   Display Matching Results
+---------------------------------------------------------- */
+function displayMatchingResults(results, jobId) {
+    if (!results.length) {
+        matchingResults.innerHTML = `
+            <div class="empty-state" style="grid-column:1/-1;padding:80px 20px;">
+                <i class="fa-solid fa-users-slash" style="font-size:36px;color:var(--border-strong);"></i>
+                <p>No candidates found in the database. Upload some resumes first.</p>
+            </div>`;
+        return;
+    }
 
     matchingResults.innerHTML = "";
 
-
     results.forEach(candidate => {
+        const score     = candidate.match_score;
+        const level     = (candidate.match_level || "").toLowerCase();
+        const tierClass = score >= 75 ? "high" : score >= 50 ? "medium" : "low";
 
-        const card =
-            document.createElement("div");
+        // Badge class from level string
+        let badgeClass = "good";
+        if (level.includes("excellent")) badgeClass = "excellent";
+        else if (level.includes("good"))     badgeClass = "good";
+        else if (level.includes("moderate")) badgeClass = "moderate";
+        else if (level.includes("low"))      badgeClass = "low";
 
-        card.className =
-            "matching-card";
-
-
-        const score =
-            candidate.match_score;
-
-
+        const card = document.createElement("div");
+        card.className = "matching-card";
         card.innerHTML = `
+            <div class="score-strip ${tierClass}"></div>
 
-            <div class="candidate-header">
-
+            <div class="mc-header">
                 <div>
-
-                    <h3>${candidate.candidate_name || "-"}</h3>
-
-                    <p>
+                    <h3>${escapeHTML(candidate.candidate_name || "—")}</h3>
+                    <p class="mc-email">
                         <i class="fa-solid fa-envelope"></i>
-                        ${candidate.email || "-"}
+                        ${escapeHTML(candidate.email || "—")}
                     </p>
-
                 </div>
-
-                <div class="score-badge">
-                    ${score}%
+                <div class="score-circle ${tierClass}">
+                    <span>${score}</span>
+                    <span class="score-label">score</span>
                 </div>
-
             </div>
 
-            <div class="candidate-body">
-
-                <p>
+            <div class="mc-body">
+                <span class="mc-exp">
                     <i class="fa-solid fa-briefcase"></i>
-                    <strong>Experience:</strong>
-                    ${candidate.candidate_experience} Years
-                </p>
-
-                <span class="match-level">
-                    ${candidate.match_level}
+                    ${candidate.candidate_experience} yrs experience
                 </span>
-
+                <span class="match-level-badge ${badgeClass}">
+                    ${escapeHTML(candidate.match_level || "—")}
+                </span>
             </div>
 
             <button
                 class="view-match-btn"
-                onclick="viewMatchDetails(
-                    ${candidate.candidate_id},
-                    ${jobId}
-                )"
+                onclick="viewMatchDetails(${candidate.candidate_id}, ${jobId})"
             >
-                <i class="fa-solid fa-eye"></i>
-                View Details
-            </button>
-
-        `;
+                <i class="fa-solid fa-chart-bar"></i>
+                View Skill Gap Analysis
+            </button>`;
 
         matchingResults.appendChild(card);
-
     });
-
 }
 
-
-// ============================================================
-// VIEW MATCH DETAILS
-// ============================================================
-
+/* ==========================================================
+   SKILL GAP ANALYSIS  —  GET /matching/skill-gap/{jobId}/{candidateId}
+========================================================== */
 async function viewMatchDetails(candidateId, jobId) {
+    // Show drawer with loading state
+    drawerCandidateName.textContent  = "Loading...";
+    drawerCandidateEmail.textContent = "";
+    drawerBody.innerHTML = `
+        <div class="empty-state" style="padding:80px 20px;">
+            <i class="fa-solid fa-spinner fa-spin" style="font-size:28px;color:white;"></i>
+        </div>`;
+    openSkillGapDrawer();
 
     try {
-
         const response = await fetch(
             `${API}/matching/skill-gap/${jobId}/${candidateId}`,
-            {
-                cache: "no-store"
-            }
+            { cache: "no-store" }
         );
-
         const data = await response.json();
 
-        if (!response.ok) {
-            throw new Error(
-                data.detail || "Failed to load details"
-            );
-        }
-
-        // -----------------------------------------
-        // Open Modal
-        // -----------------------------------------
-
-        modal.style.display = "flex";
-
-
-        // -----------------------------------------
-        // Skill Matching HTML
-        // -----------------------------------------
-
-        let skillsHTML = "";
-
-        // Matched skills
-        data.matched_skills.forEach(skill => {
-
-            const isLevelMatch = skill.level_match;
-
-            skillsHTML += `
-                <div class="skill-match-row
-                    ${isLevelMatch ? "skill-good" : "skill-warning"}">
-
-                    <strong>
-                        ${skill.name}
-                    </strong>
-
-                    <span>
-                        Required:
-                        <b>${skill.required_level}</b>
-                    </span>
-
-                    <span>
-                        Candidate:
-                        <b>${skill.candidate_level}</b>
-                    </span>
-
-                    <span class="skill-status">
-                        ${isLevelMatch
-                            ? "✓ Level Match"
-                            : "⚠ Level Gap"}
-                    </span>
-
-                </div>
-            `;
-
-        });
-
-
-        // -----------------------------------------
-        // Missing Skills
-        // -----------------------------------------
-
-        data.missing_skills.forEach(skill => {
-
-            skillsHTML += `
-                <div class="skill-match-row skill-missing">
-
-                    <strong>
-                        ${skill.name}
-                    </strong>
-
-                    <span>
-                        Required:
-                        <b>${skill.required_level}</b>
-                    </span>
-
-                    <span>
-                        Candidate:
-                        <b>Not Found</b>
-                    </span>
-
-                    <span class="skill-status">
-                        ❌ Missing
-                    </span>
-
-                </div>
-            `;
-
-        });
-
-
-        // -----------------------------------------
-        // Experience Analysis
-        // -----------------------------------------
-
-        const experienceGap =
-            data.candidate_experience <
-            data.required_experience;
-
-        const experienceHTML = `
-
-            <div class="experience-analysis">
-
-                <h3>
-                    <i class="fa-solid fa-briefcase"></i>
-                    Experience Analysis
-                </h3>
-
-                <div class="experience-box">
-
-                    <div>
-                        <span>Candidate Experience</span>
-                        <strong>
-                            ${data.candidate_experience} years
-                        </strong>
-                    </div>
-
-                    <div>
-                        <span>Required Experience</span>
-                        <strong>
-                            ${data.required_experience} years
-                        </strong>
-                    </div>
-
-                    <div>
-                        <span>Status</span>
-
-                        <strong class="${
-                            experienceGap
-                                ? "experience-warning"
-                                : "experience-good"
-                        }">
-
-                            ${
-                                experienceGap
-                                    ? "⚠ Experience Gap"
-                                    : "✓ Requirement Met"
-                            }
-
-                        </strong>
-
-                    </div>
-
-                </div>
-
-            </div>
-        `;
-
-
-        // -----------------------------------------
-        // Recommendations
-        // -----------------------------------------
-
-        const recommendations =
-            data.skill_gap?.recommendations || [];
-
-        let recommendationHTML = "";
-
-        if (recommendations.length > 0) {
-
-            recommendationHTML = `
-
-                <div class="recommendation-section">
-
-                    <h3>
-                        <i class="fa-solid fa-lightbulb"></i>
-                        Skill Gap Recommendations
-                    </h3>
-
-                    <ul>
-
-                        ${recommendations
-                            .map(item => `
-                                <li>${item}</li>
-                            `)
-                            .join("")
-                        }
-
-                    </ul>
-
-                </div>
-
-            `;
-
-        }
-
-
-        // -----------------------------------------
-        // Final Modal
-        // -----------------------------------------
-
-        modalBody.innerHTML = `
-
-            <div class="match-summary">
-
-                <div class="profile-grid">
-
-                    <p>
-                        <strong>Name:</strong>
-                        ${data.candidate_name || "-"}
-                    </p>
-
-                    <p>
-                        <strong>Email:</strong>
-                        ${data.email || "-"}
-                    </p>
-
-                    <p>
-                        <strong>Match Score:</strong>
-                        <span class="modal-score">
-                            ${data.match_score}%
-                        </span>
-                    </p>
-
-                    <p>
-                        <strong>Match Level:</strong>
-                        ${data.match_level}
-                    </p>
-
-                </div>
-
-            </div>
-
-
-            <div class="modal-section">
-
-                <h3>
-                    <i class="fa-solid fa-code"></i>
-                    Skill Matching
-                </h3>
-
-                <div class="skill-matching-list">
-
-                    ${skillsHTML}
-
-                </div>
-
-            </div>
-
-
-            ${experienceHTML}
-
-
-            ${recommendationHTML}
-
-        `;
-
-    }
-
-    catch (error) {
-
-        console.error(
-            "Match Details Error:",
-            error
-        );
-
-        alert(
-            error.message ||
-            "Unable to load candidate details."
-        );
-
+        if (!response.ok) throw new Error(data.detail || "Failed to load details");
+
+        renderSkillGapDrawer(data);
+
+    } catch (error) {
+        console.error("Skill Gap Error:", error);
+        drawerBody.innerHTML = `
+            <div class="empty-state" style="padding:80px 20px;">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size:28px;color:#f87171;"></i>
+                <p>Unable to load skill gap details.</p>
+            </div>`;
     }
 }
 
-// ============================================================
-// INITIAL LOAD
-// ============================================================
+/* ----------------------------------------------------------
+   Render Skill Gap Drawer Content
+---------------------------------------------------------- */
+function renderSkillGapDrawer(data) {
+    // Header
+    drawerCandidateName.textContent  = data.candidate_name  || "Candidate";
+    drawerCandidateEmail.textContent = data.email           || "";
 
-window.addEventListener(
-    "DOMContentLoaded",
-    () => {
+    const score     = data.match_score || 0;
+    const tierClass = score >= 75 ? "high" : score >= 50 ? "medium" : "low";
 
-        loadJobs();
+    // Summary strip
+    const matchedCount = (data.matched_skills  || []).length;
+    const missingCount = (data.missing_skills  || []).length;
+    const totalCount   = matchedCount + missingCount;
 
-    }
-);
-// ==========================
-// Sidebar Navigation
-// ==========================
+    let summaryHTML = `
+        <div class="drawer-summary">
+            <div class="drawer-stat">
+                <span class="ds-value" style="color:var(--${tierClass === 'high' ? 'green' : tierClass === 'medium' ? 'yellow' : 'red'})">${score}%</span>
+                <span class="ds-label">Match Score</span>
+            </div>
+            <div class="drawer-stat">
+                <span class="ds-value" style="color:var(--green)">${matchedCount}</span>
+                <span class="ds-label">Matched Skills</span>
+            </div>
+            <div class="drawer-stat">
+                <span class="ds-value" style="color:var(--red)">${missingCount}</span>
+                <span class="ds-label">Missing Skills</span>
+            </div>
+        </div>`;
 
-const menuItems = document.querySelectorAll(".menu li");
-const pages = document.querySelectorAll(".page");
-
-menuItems.forEach(item => {
-
-    item.addEventListener("click", () => {
-
-        // Remove active sidebar
-        menuItems.forEach(i => i.classList.remove("active"));
-
-        // Hide all pages
-        pages.forEach(page => page.classList.remove("active-page"));
-
-        // Activate clicked menu
-        item.classList.add("active");
-
-        // Show selected page
-        const pageId = item.dataset.page;
-        document.getElementById(pageId).classList.add("active-page");
-
+    // Matched Skills
+    let matchedHTML = "";
+    (data.matched_skills || []).forEach(skill => {
+        const isLevelMatch = skill.level_match;
+        matchedHTML += `
+            <div class="skill-match-row ${isLevelMatch ? "skill-good" : "skill-warning"}">
+                <span class="smr-name">${escapeHTML(skill.name)}</span>
+                <span class="smr-tag smr-required">Req: ${skill.required_level}</span>
+                <span class="smr-tag smr-candidate">Has: ${skill.candidate_level}</span>
+                <span class="smr-status">${isLevelMatch ? "✓ Match" : "⚠ Gap"}</span>
+            </div>`;
     });
 
-});
-const generateQuestionsBtn =
-    document.getElementById("generateQuestionsBtn");
+    // Missing Skills
+    let missingHTML = "";
+    (data.missing_skills || []).forEach(skill => {
+        missingHTML += `
+            <div class="skill-match-row skill-missing">
+                <span class="smr-name">${escapeHTML(skill.name)}</span>
+                <span class="smr-tag smr-required">Req: ${skill.required_level}</span>
+                <span class="smr-tag" style="background:#fee2e2;color:#dc2626;">Not Found</span>
+                <span class="smr-status">❌ Missing</span>
+            </div>`;
+    });
 
-const generatedQuestions =
-    document.getElementById("generatedQuestions");
+    // Experience
+    const expGap     = (data.candidate_experience || 0) < (data.required_experience || 0);
+    const expValClass = expGap ? "exp-status-warn" : "exp-status-good";
+    const expStatus   = expGap ? "⚠ Gap" : "✓ Met";
 
-    // ============================================================
-// MILESTONE 3 - GENERATE INTERVIEW QUESTIONS
-// ============================================================
+    const experienceHTML = `
+        <div class="experience-comparison">
+            <div class="exp-box">
+                <span class="exp-value">${data.candidate_experience}</span>
+                <span class="exp-label">Candidate Years</span>
+            </div>
+            <div class="exp-box">
+                <span class="exp-value">${data.required_experience}</span>
+                <span class="exp-label">Required Years</span>
+            </div>
+            <div class="exp-box">
+                <span class="exp-value ${expValClass}">${expStatus}</span>
+                <span class="exp-label">Experience Status</span>
+            </div>
+        </div>`;
 
+    // Recommendations
+    const recommendations = (data.skill_gap && data.skill_gap.recommendations) || [];
+    let recommendHTML = "";
+    if (recommendations.length > 0) {
+        recommendHTML = `
+            <div class="drawer-section">
+                <div class="drawer-section-title">
+                    <i class="fa-solid fa-lightbulb"></i>
+                    Skill Gap Recommendations
+                </div>
+                <ul class="recommendations-list">
+                    ${recommendations.map(r => `
+                        <li>
+                            <i class="fa-solid fa-arrow-right"></i>
+                            ${escapeHTML(r)}
+                        </li>`).join("")}
+                </ul>
+            </div>`;
+    }
+
+    // Compose final drawer body
+    drawerBody.innerHTML = `
+        ${summaryHTML}
+
+        <div class="drawer-section">
+            <div class="drawer-section-title">
+                <i class="fa-solid fa-code"></i>
+                Skill Matching (${matchedCount} of ${totalCount} skills matched)
+            </div>
+            ${matchedHTML || '<p style="color:var(--text-muted);font-size:13px;">No skills matched.</p>'}
+        </div>
+
+        ${missingCount > 0 ? `
+        <div class="drawer-section">
+            <div class="drawer-section-title">
+                <i class="fa-solid fa-circle-xmark" style="color:var(--red);"></i>
+                Missing Skills
+            </div>
+            ${missingHTML}
+        </div>` : ""}
+
+        <div class="drawer-section">
+            <div class="drawer-section-title">
+                <i class="fa-solid fa-briefcase"></i>
+                Experience Analysis
+            </div>
+            ${experienceHTML}
+        </div>
+
+        ${recommendHTML}`;
+}
+
+/* ==========================================================
+   INTERVIEW QUESTIONS  —  POST /interview/generate-questions
+========================================================== */
 generateQuestionsBtn.addEventListener("click", async () => {
-
-    const jobTitle = document.getElementById("interviewJob").value.trim();
-
-    const questionType =
-        document.getElementById("questionType").value;
+    const jobTitle    = document.getElementById("interviewJob").value.trim();
+    const questionType = document.getElementById("questionType").value;
 
     if (!jobTitle) {
-
-        alert("Please enter a job title.");
-
+        showToast("Please select a job position.", true);
         return;
     }
 
-    // Show loading state
-
     generatedQuestions.innerHTML = `
         <div class="empty-state">
-
-            <i class="fa-solid fa-spinner fa-spin"></i>
-
-            <p>
-                Gemini is generating interview questions...
-            </p>
-
-        </div>
-    `;
+            <i class="fa-solid fa-spinner fa-spin" style="font-size:22px;color:var(--primary);"></i>
+            <p>AI is generating questions...</p>
+        </div>`;
 
     generateQuestionsBtn.disabled = true;
-
-    generateQuestionsBtn.innerHTML = `
-        <i class="fa-solid fa-spinner fa-spin"></i>
-        Generating...
-    `;
-
+    generateQuestionsBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating...`;
 
     try {
-
-        const response = await fetch(
-            `${API}/interview/generate-questions`,
-            {
-                method: "POST",
-
-                headers: {
-                    "Content-Type": "application/json"
-                },
-
-                body: JSON.stringify({
-                    job_title: jobTitle,
-                    question_type: questionType
-                })
-            }
-        );
-
+        const response = await fetch(`${API}/interview/generate-questions`, {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ job_title: jobTitle, question_type: questionType })
+        });
 
         const data = await response.json();
 
-
-        if (!response.ok) {
-
-            throw new Error(
-                data.detail ||
-                "Failed to generate questions."
-            );
-
-        }
-
+        if (!response.ok) throw new Error(data.detail || "Failed to generate questions.");
 
         displayGeneratedQuestions(data.questions);
 
-    }
-
-    catch (error) {
-
-        console.error(
-            "Interview Question Error:",
-            error
-        );
-
+    } catch (error) {
+        console.error("Interview Question Error:", error);
         generatedQuestions.innerHTML = `
             <div class="empty-state">
-
-                <i class="fa-solid fa-triangle-exclamation"></i>
-
-                <p>
-                    Failed to generate questions.
-                </p>
-
-            </div>
-        `;
-
-    }
-
-    finally {
-
+                <i class="fa-solid fa-triangle-exclamation" style="color:#dc2626;"></i>
+                <p>Failed to generate questions.</p>
+            </div>`;
+    } finally {
         generateQuestionsBtn.disabled = false;
-
-        generateQuestionsBtn.innerHTML = `
-            <i class="fa-solid fa-wand-magic-sparkles"></i>
-            Generate Questions
-        `;
-
+        generateQuestionsBtn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Generate Questions`;
     }
-
 });
-function displayGeneratedQuestions(questions) {
 
+function displayGeneratedQuestions(questions) {
     const lines = questions
         .split("\n")
-        .map(line => line.trim())
-        .filter(line => line.length > 0);
-
+        .map(l => l.trim())
+        .filter(l => l.length > 0);
 
     generatedQuestions.innerHTML = "";
-
-
     lines.forEach((question, index) => {
-
         const card = document.createElement("div");
-
         card.className = "question-card";
-
-
         card.innerHTML = `
-            <div class="question-number">
-                ${index + 1}
-            </div>
-
-            <div class="question-text">
-                ${question.replace(
-                    /^\d+[\.\)]\s*/,
-                    ""
-                )}
-            </div>
-        `;
-
-
+            <div class="question-number">${index + 1}</div>
+            <div class="question-text">${escapeHTML(question.replace(/^\d+[.)]\s*/, ""))}</div>`;
         generatedQuestions.appendChild(card);
-
     });
+}
 
+/* ==========================================================
+   INITIAL PAGE LOAD
+========================================================== */
+window.addEventListener("DOMContentLoaded", async () => {
+    await loadStats();
+    await loadLatestCandidate();
+    await loadCandidates();
+    await loadJobListingGrid();
+    await loadJobsIntoDropdown();
+
+    // Wire candidate search input
+    const searchInput = document.getElementById("candidateSearchInput");
+    if (searchInput) {
+        searchInput.addEventListener("input", () => filterCandidates(searchInput.value));
+    }
+});
+
+/* ==========================================================
+   UTILITIES
+========================================================== */
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function safeParseJSON(value, fallback) {
+    try {
+        if (Array.isArray(value)) return value;
+        return JSON.parse(value || "null") || fallback;
+    } catch {
+        return fallback;
+    }
+}
+
+function escapeHTML(str) {
+    if (!str) return "";
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
 }

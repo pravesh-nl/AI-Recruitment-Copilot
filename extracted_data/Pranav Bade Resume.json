@@ -1,0 +1,41 @@
+{
+    "name": "Black Box",
+    "email": "badepranav900@gmail.com",
+    "phone": "+91 7758051011",
+    "skills": [
+        "C",
+        "C++",
+        "CSS",
+        "DSA  Problem Solving",
+        "Flask",
+        "Flask  AI/ML  Data Analytics",
+        "HTML",
+        "JavaScript",
+        "JavaScript  HTML  CSS",
+        "Problem Solving",
+        "Python",
+        "Python  C++  C"
+    ],
+    "education": [
+        "Amity University Mumbai",
+        "B.Tech Computer Engineering"
+    ],
+    "projects": [
+        "Black Box"
+    ],
+    "certifications": [
+        "Learning, Data Analytics, and Python development. Currently interning at Infosys Springboard,",
+        "\u2022 Machine Learning Training Certificate",
+        "Infosys Springboard \u2013 AI/ML Intern (Current)"
+    ],
+    "experience": [
+        "Learning, Data Analytics, and Python development. Currently interning at Infosys Springboard,",
+        "developing AI-powered predictive maintenance solutions. Passionate about solving real-world problems",
+        "through scalable software and intelligent systems.",
+        "AI/ML Enthusiast | Software Developer | Data Analytics",
+        "Computer Engineering student (CGPA: 8.56) with hands-on experience in Artificial Intelligence, Machine",
+        "B.Tech Computer Engineering",
+        "EXPERIENCE",
+        "Infosys Springboard \u2013 AI/ML Intern (Current)"
+    ]
+}

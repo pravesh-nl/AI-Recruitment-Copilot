@@ -2,959 +2,501 @@
 <html lang="en">
 
 <head>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+<meta name="description" content="AI Recruitment Copilot - Smart job matching, candidate analysis, and skill gap recommendations powered by AI.">
 <title>AI Recruitment Copilot</title>
-
 <link rel="stylesheet" href="style.css">
-
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-<link rel="stylesheet"
-href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
-
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
 </head>
 
 <body>
 
-<!-- ========================= -->
-<!-- SIDEBAR -->
-<!-- ========================= -->
+<!-- ===================== SIDEBAR ===================== -->
+<aside class="sidebar">
 
-<div class="sidebar">
-
-    <div class="logo">
-
-        <div class="logo-icon">
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">
             <i class="fa-solid fa-user-tie"></i>
         </div>
-
-        <div>
-            <h2>Recruitment</h2>
-            <span>Copilot</span>
+        <div class="sidebar-logo-text">
+            <span class="sidebar-title">Recruitment</span>
+            <span class="sidebar-subtitle">Copilot AI</span>
         </div>
-
     </div>
 
-    <ul class="menu">
+    <nav>
+        <ul class="menu">
 
-        <li class="active" data-page="resumePage">
-            <i class="fa-solid fa-file-arrow-up"></i>
-            Resume Upload
-        </li>
+            <li class="menu-item active" data-page="resumePage">
+                <i class="fa-solid fa-file-arrow-up"></i>
+                <span>Resume Upload</span>
+            </li>
 
-        <li data-page="candidatesPage">
-            <i class="fa-solid fa-users"></i>
-            Candidates
-        </li>
+            <li class="menu-item" data-page="candidatesPage">
+                <i class="fa-solid fa-users"></i>
+                <span>Candidates</span>
+            </li>
 
-        <li data-page="jobsPage">
-            <i class="fa-solid fa-briefcase"></i>
-            Job Postings
-        </li>
+            <li class="menu-item" data-page="jobsPage">
+                <i class="fa-solid fa-briefcase"></i>
+                <span>Job Management</span>
+            </li>
 
-        <li data-page="analyticsPage">
-            <i class="fa-solid fa-chart-line"></i>
-            Analytics
-        </li>
+            <li class="menu-item" data-page="matchingPage">
+                <i class="fa-solid fa-magnifying-glass-chart"></i>
+                <span>Matching</span>
+            </li>
 
-        <li data-page="interviewPage">
-            <i class="fa-solid fa-comments"></i>
-            Interview Assistant
-        </li>
+            <li class="menu-item" data-page="interviewPage">
+                <i class="fa-solid fa-comments"></i>
+                <span>Interview</span>
+            </li>
 
-        <li data-page="settingsPage">
-            <i class="fa-solid fa-gear"></i>
-            Settings
-        </li>
+        </ul>
+    </nav>
 
-    </ul>
+    <div class="sidebar-footer">
+        <span class="version-badge">v2.0 • Groq AI</span>
+    </div>
 
-</div>
+</aside>
 
-<!-- ========================= -->
-<!-- MAIN -->
-<!-- ========================= -->
+<!-- ===================== MAIN ===================== -->
+<main class="main">
 
-<div class="main">
-
-    <!-- RESUME UPLOAD PAGE -->
+    <!-- ==================== RESUME UPLOAD PAGE ==================== -->
     <div id="resumePage" class="page active-page">
 
-        <header>
-
-            <h1>Resume Parsing & Candidate Profiling</h1>
-
-        <p>
-        Upload and process resumes to create structured candidate profiles.
-        </p>
-
-        </header>
-
-<!-- ========================= -->
-<!-- TOP SECTION -->
-<!-- ========================= -->
-
-<div class="top-section">
-
-<!-- ========================= -->
-<!-- LEFT -->
-<!-- ========================= -->
-
-<div class="upload-area">
-
-    <!-- INNER DRAG & DROP BOX -->
-    <div class="upload-drop-zone">
-
-        <div class="upload-icon">
-            <i class="fa-solid fa-cloud-arrow-up"></i>
-        </div>
-
-        <h3>
-            Drag & Drop Resume Here
-        </h3>
-
-        <p>
-            or
-        </p>
-
-        <button
-            type="button"
-            id="browseBtn"
-            class="browse-btn"
-        >
-            <i class="fa-solid fa-folder-open"></i>
-            Browse Files
-        </button>
-
-        <input
-            type="file"
-            id="resumeInput"
-            multiple
-            accept=".pdf,.doc,.docx"
-            hidden
-        >
-
-    </div>
-
-    <!-- SELECTED FILES -->
-    <div
-        id="selectedFiles"
-        class="selected-files"
-    >
-        <p>No file selected</p>
-    </div>
-
-    <!-- UPLOAD BUTTON -->
-    <button
-        type="button"
-        id="uploadBtn"
-        class="primary-btn"
-    >
-        <i class="fa-solid fa-upload"></i>
-        Upload Resumes
-    </button>
-
-</div>
-
-<!-- ========================= -->
-<!-- RIGHT -->
-<!-- ========================= -->
-
-<div class="card">
-
-<h2>
-
-<i class="fa-solid fa-chart-simple"></i>
-
-Parsing Progress
-
-</h2>
-
-<div class="progress-bar">
-
-<div
-id="progressFill"
-class="progress-fill">
-
-</div>
-
-</div>
-
-<p id="progressStatus">
-
-Waiting for Resume Upload...
-
-</p>
-
-<div class="stats">
-        <div class="stat-card">
-
-        <div class="icon orange">
-            <i class="fa-solid fa-file-lines"></i>
-        </div>
-
-        <div class="stat-title">
-            Resume Processed
-        </div>
-
-        <div
-            class="stat-value"
-            id="resumeProcessed">
-            0
-        </div>
-
-    </div>
-
-    <div class="stat-card">
-
-        <div class="icon yellow">
-            <i class="fa-solid fa-bullseye"></i>
-        </div>
-
-        <div class="stat-title">
-            Parsing Accuracy
-        </div>
-
-        <div
-            class="stat-value"
-            id="parsingAccuracy">
-            0%
-        </div>
-
-    </div>
-
-    <div class="stat-card">
-
-        <div class="icon green">
-            <i class="fa-solid fa-user-check"></i>
-        </div>
-
-        <div class="stat-title">
-            Profiles Created
-        </div>
-
-        <div
-            class="stat-value"
-            id="profilesCreated">
-            0
-        </div>
-
-    </div>
-
-</div>
-
-<hr>
-
-<!-- ========================= -->
-<!-- EXTRACTED INFORMATION -->
-<!-- ========================= -->
-
-<div class="extract-section">
-
-<h2>
-
-<i class="fa-solid fa-address-card"></i>
-
-Extracted Information
-
-</h2>
-
-<p class="subtitle">
-
-Showing the most recently processed resume.
-
-</p>
-
-<div
-id="candidateInfo"
-class="candidate-box">
-
-<div class="empty-box">
-
-<i class="fa-regular fa-folder-open"></i>
-
-<p>
-
-No resume uploaded yet.
-
-</p>
-
-</div>
-
-</div>
-
-</div>
-
-</div>
-
-</div>
-
-<!-- ========================= -->
-<!-- RECENT CANDIDATES -->
-<!-- ========================= -->
-
-<div class="table-card">
-
-<div class="table-title">
-
-<i class="fa-solid fa-users"></i>
-
-Recently Processed Candidates
-
-</div>
-
-<table>
-
-<thead>
-
-<tr>
-
-<th>Name</th>
-
-<th>Email</th>
-
-<th>Phone</th>
-
-<th>Status</th>
-
-<th>Action</th>
-
-</tr>
-
-</thead>
-
-<tbody id="candidateTable">
-
-<tr>
-
-<td colspan="5" class="no-data">
-
-No Candidates Found
-
-</td>
-
-</tr>
-
-</tbody>
-
-</table>
-</div>
-</div>
-
-<!-- =====================================================
-     MILESTONE 2 - JOB POSTING & CANDIDATE MATCHING
-===================================================== -->
-
-<section id="jobsPage" class="page milestone-two">
-
-    <div class="section-header">
-        <div>
-            <h2>
-                <i class="fa-solid fa-briefcase"></i>
-                Job Postings
-            </h2>
-
-            <p>Create a job and find the best matching candidates.</p>
-        </div>
-    </div>
-
-<div class="jobs-top">
-    <!-- =========================
-         CREATE JOB
-    ========================== -->
-
-    <div class="job-card">
-
-        <h3>Create New Job</h3>
-
-        <div class="job-form">
-
-            <div class="form-group">
-
-                <label for="jobTitle">
-                    Job Title
-                </label>
-
-                <input
-                    type="text"
-                    id="jobTitle"
-                    placeholder="e.g. Backend Developer"
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label for="minExperience">
-                    Minimum Experience (Years)
-                </label>
-
-                <input
-                    type="number"
-                    id="minExperience"
-                    min="0"
-                    value="0"
-                >
-
-            </div>
-
-        </div>
-
-
-        <!-- =========================
-             REQUIRED SKILLS
-        ========================== -->
-
-        <h3 class="skills-heading">
-            Required Skills
-        </h3>
-
-        <div id="jobSkillsContainer">
-
-            <div class="job-skill-row">
-
-                <input
-                    type="text"
-                    class="job-skill-name"
-                    placeholder="Skill name"
-                >
-
-                <select class="job-skill-level">
-
-                    <option value="Basic">
-                        Basic
-                    </option>
-
-                    <option value="Intermediate">
-                        Intermediate
-                    </option>
-
-                    <option value="Advanced">
-                        Advanced
-                    </option>
-
-                    <option value="Expert">
-                        Expert
-                    </option>
-
-                </select>
-
-                <button
-                    type="button"
-                    class="remove-skill-btn"
-                    onclick="removeSkillRow(this)"
-                >
-                    <i class="fa-solid fa-trash"></i>
-                </button>
-
-            </div>
-
-        </div>
-
-
-        <button
-            type="button"
-            id="addSkillBtn"
-            class="secondary-btn"
-        >
-            <i class="fa-solid fa-plus"></i>
-            Add Skill
-        </button>
-
-
-        <button
-            type="button"
-            id="createJobBtn"
-            class="primary-btn"
-        >
-            <i class="fa-solid fa-briefcase"></i>
-            Create Job
-        </button>
-
-    </div>
-
-
-    <!-- =========================
-         SELECT JOB
-    ========================== -->
-
-    <div class="job-card">
-
-        <h3>Match Candidates</h3>
-
-        <div class="form-group">
-
-            <label for="jobSelect">
-                Select Job
-            </label>
-
-            <select id="jobSelect">
-
-                <option value="">
-                    Select a job
-                </option>
-
-            </select>
-
-        </div>
-
-        <button
-            type="button"
-            id="matchCandidatesBtn"
-            class="primary-btn"
-        >
-            <i class="fa-solid fa-magnifying-glass"></i>
-            Find Best Candidates
-        </button>
-
-    </div>
-    </div>
-
-    <!-- =========================
-         MATCHING RESULTS
-    ========================== -->
-
-    <div class="job-card">
-
-        <div class="section-header">
-
+        <div class="page-header">
             <div>
+                <h1>Resume Parsing</h1>
+                <p>Upload resumes to create structured candidate profiles using AI.</p>
+            </div>
+        </div>
 
-                <h3>
-                    Candidate Matching
-                </h3>
+        <div class="top-section">
 
-                <p>
-                    Candidates ranked according to hiring score.
-                </p>
+            <!-- Upload Area -->
+            <div class="upload-area">
+                <div class="upload-drop-zone">
+                    <div class="upload-icon">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </div>
+                    <h3>Drag &amp; drop resumes here</h3>
+                    <p class="upload-or-text">or</p>
+                    <button type="button" id="browseBtn" class="browse-btn">
+                        <i class="fa-solid fa-folder-open"></i>
+                        Choose Files
+                    </button>
+                    <p class="upload-format-hint">PDF and DOCX supported</p>
+                    <input type="file" id="resumeInput" multiple accept=".pdf,.doc,.docx" hidden>
+                </div>
 
+                <div id="selectedFiles" class="selected-files">
+                    <p class="no-files-text">No file selected</p>
+                </div>
+
+                <button type="button" id="uploadBtn" class="btn-primary full-width-btn">
+                    <i class="fa-solid fa-upload"></i>
+                    Upload Resumes
+                </button>
+            </div>
+
+            <!-- Parsing Progress Card -->
+            <div class="card">
+                <h2 class="card-heading">
+                    <i class="fa-solid fa-chart-simple"></i>
+                    Parsing Progress
+                </h2>
+
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+                <p id="progressStatus" class="progress-status">Waiting for Resume Upload...</p>
+
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-icon orange-bg">
+                            <i class="fa-solid fa-file-lines"></i>
+                        </div>
+                        <div class="stat-label">Resumes Processed</div>
+                        <div class="stat-value" id="resumeProcessed">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon yellow-bg">
+                            <i class="fa-solid fa-bullseye"></i>
+                        </div>
+                        <div class="stat-label">Parsing Accuracy</div>
+                        <div class="stat-value" id="parsingAccuracy">0%</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon green-bg">
+                            <i class="fa-solid fa-user-check"></i>
+                        </div>
+                        <div class="stat-label">Profiles Created</div>
+                        <div class="stat-value" id="profilesCreated">0</div>
+                    </div>
+                </div>
+
+                <hr class="divider">
+
+                <div class="extract-section">
+                    <h2 class="card-heading">
+                        <i class="fa-solid fa-address-card"></i>
+                        Latest Extracted Profile
+                    </h2>
+                    <p class="card-subtitle">Most recently processed resume.</p>
+                    <div id="candidateInfo" class="candidate-box">
+                        <div class="empty-box">
+                            <i class="fa-regular fa-folder-open"></i>
+                            <p>No resume uploaded yet.</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
         </div>
 
-
-        <div
-            id="matchingResults"
-            class="matching-results"
-        >
-
-            <div class="empty-state">
-
+        <!-- Candidates Table -->
+        <div class="table-card">
+            <div class="table-title">
                 <i class="fa-solid fa-users"></i>
-
-                <p>
-                    Select a job to view matching candidates.
-                </p>
-
+                Recently Processed Candidates
             </div>
-
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="candidateTable">
+                    <tr>
+                        <td colspan="5" class="no-data">No Candidates Found</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
 
     </div>
 
-</section>
-<section id="candidatesPage" class="page">
-
-    <header>
-        <h1>Candidates</h1>
-        <p>Candidate management page.</p>
-    </header>
-
-</section>
-
-<section id="analyticsPage" class="page">
-
-    <header>
-        <h1>Analytics</h1>
-        <p>Analytics dashboard.</p>
-    </header>
-
-</section>
-
-<section id="settingsPage" class="page">
-
-    <header>
-        <h1>Settings</h1>
-        <p>Application settings.</p>
-    </header>
-
-</section>
-
-<!-- ========================= -->
-<!-- CANDIDATE PROFILE MODAL -->
-<!-- ========================= -->
-
-<div id="candidateModal" class="modal">
-
-    <div class="modal-content">
-
-        <span class="close-modal" id="closeModal">
-
-            &times;
-
-        </span>
-
-        <h2>
-
-            <i class="fa-solid fa-user"></i>
-
-            Candidate Profile
-
-        </h2>
-
-        <div id="modalBody">
-
-            <!-- Filled dynamically -->
-
-        </div>
-
-    </div>
-
-</div>
-
-<!-- ========================= -->
-<!-- LOADER -->
-<!-- ========================= -->
-
-<div id="loaderOverlay" class="loader-overlay">
-
-    <div class="loader-box">
-
-        <div class="spinner"></div>
-
-        <h3>
-
-            Processing Resume...
-
-        </h3>
-
-        <p>
-
-            Please wait while we parse candidate information.
-
-        </p>
-
-    </div>
-
-</div>
-
-<!-- ==========================================
-     MILESTONE 3 - INTERVIEW ASSISTANT
-========================================== -->
-
-<section id="interviewPage" class="page milestone-three">
-
-    <div class="section-header">
-
-        <div>
-            <h1>
-                Interview Assistance & ATS Integration
-            </h1>
-
-            <p>
-                Generate interview questions, simulate interviews,
-                and manage candidate interview status.
-            </p>
-        </div>
-
-        <span class="milestone-badge">
-            Milestone 3
-        </span>
-
-    </div>
-
-
-<!-- =========================
-     INTERVIEW ASSISTANT
-========================= -->
-
-<div class="interview-grid">
-
-    <!-- =========================
-         INTERVIEW QUESTION GENERATOR
-    ========================== -->
-
-    <div class="interview-card">
-
-        <div class="card-header">
-
-            <h2>Interview Question Generator</h2>
-
-            <p>
-                AI-generated, role-specific questions (Gemini)
-            </p>
-
-        </div>
-
-
-        <div class="generator-controls">
-
-            <div class="form-group">
-
-                <label for="interviewJob">
-                    Job Position
-                </label>
-
-                <select id="interviewJob">
-
-                    <option value="">
-                        Select job
-                    </option>
-
-                </select>
-
+    <!-- ==================== CANDIDATES PAGE ==================== -->
+    <section id="candidatesPage" class="page">
+        <div class="page-header">
+            <div>
+                <h1>Candidates</h1>
+                <p>All processed candidate profiles.</p>
             </div>
-
-
-            <div class="form-group">
-
-                <label for="questionType">
-                    Question Type
-                </label>
-
-                <select id="questionType">
-
-                    <option value="technical">
-                        Technical Skills
-                    </option>
-
-                    <option value="behavioral">
-                        Behavioral
-                    </option>
-
-                    <option value="scenario">
-                        Scenario-based
-                    </option>
-
-                    <option value="experience">
-                        Experience-based
-                    </option>
-
-                </select>
-
-            </div>
-
         </div>
 
-
-        <button
-            type="button"
-            id="generateQuestionsBtn"
-            class="primary-btn"
-        >
-
-            <i class="fa-solid fa-wand-magic-sparkles"></i>
-
-            Generate Questions
-
-        </button>
-
-
-        <div
-            id="generatedQuestions"
-            class="questions-container"
-        >
-
-            <div class="empty-state">
-
-                <i class="fa-solid fa-wand-magic-sparkles"></i>
-
-                <p>
-                    Generate questions to begin.
-                </p>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <!-- =========================
-         AI INTERVIEW SIMULATION
-    ========================== -->
-
-    <div class="interview-card">
-
-        <div class="card-header">
-
-            <h2>AI Interview Simulation</h2>
-
-            <p>
-                Select a candidate to start
-            </p>
-
-        </div>
-
-
-        <div class="simulation-controls">
-
-            <div class="form-group">
-
-                <label for="interviewCandidate">
-                    Candidate
-                </label>
-
-                <select id="interviewCandidate">
-
-                    <option value="">
-                        Select candidate
-                    </option>
-
-                </select>
-
-            </div>
-
-
-            <button
-                type="button"
-                id="startInterviewBtn"
-                class="primary-btn"
-            >
-
-                Start Interview
-
-            </button>
-
-        </div>
-
-
-        <!-- CHAT AREA -->
-
-        <div
-            id="interviewChat"
-            class="interview-chat"
-        >
-
-            <div class="chat-empty">
-
-                <i class="fa-solid fa-comments"></i>
-
-                <p>
-                    Start an interview to begin the AI-simulated conversation.
-                </p>
-
-            </div>
-
-        </div>
-
-
-        <!-- CHAT INPUT -->
-
-        <div class="chat-input-area">
-
+        <!-- Search bar -->
+        <div class="candidate-search-wrap">
+            <i class="fa-solid fa-magnifying-glass candidate-search-icon"></i>
             <input
                 type="text"
-                id="candidateResponse"
-                placeholder="Type your response..."
-                disabled
+                id="candidateSearchInput"
+                class="candidate-search-input"
+                placeholder="Search candidates by name or email..."
+                autocomplete="off"
             >
-
-            <button
-                type="button"
-                id="sendResponseBtn"
-                class="secondary-btn"
-                disabled
-            >
-                Send
-            </button>
-
-            <button
-                type="button"
-                id="endInterviewBtn"
-                class="secondary-btn"
-                disabled
-            >
-                End Interview
-            </button>
-
         </div>
 
-    </div>
+        <div class="table-card">
+            <div class="table-title">
+                <i class="fa-solid fa-users"></i>
+                All Candidates
+                <span id="candidateCountBadge" class="candidate-count-badge"></span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="allCandidatesTable">
+                    <tr>
+                        <td colspan="5" class="no-data">No Candidates Found</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
 
-</div>
+    <!-- ==================== JOB MANAGEMENT PAGE ==================== -->
+    <section id="jobsPage" class="page">
 
+        <div class="page-header">
+            <div>
+                <h1><i class="fa-solid fa-briefcase"></i> Job Management</h1>
+                <p>Create job postings, define required skills, and manage your openings.</p>
+            </div>
+        </div>
 
-<!-- =========================
-     ATS INTEGRATION
-========================= -->
-
-<div class="interview-card ats-card">
-
-    <div class="card-header">
-
-        <h2>ATS Integration</h2>
-
-        <p>
-            Mock ATS status per candidate, driven by interview session state
-        </p>
-
-    </div>
-
-
-    <div
-        id="atsCandidates"
-        class="ats-list"
-    >
-
-        <div class="ats-row">
-
-            <div class="ats-candidate">
-
-                <strong>
-                    No candidate selected
-                </strong>
-
+        <!-- Create New Job (full width) -->
+        <div class="panel-card jobs-form-card">
+            <div class="panel-card-header">
+                <i class="fa-solid fa-plus-circle"></i>
+                <h3>Create New Job</h3>
             </div>
 
-            <span class="status-badge">
-                Not scheduled
-            </span>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="jobTitle">Job Title</label>
+                    <input type="text" id="jobTitle" placeholder="e.g. Backend Developer">
+                </div>
+                <div class="form-group">
+                    <label for="minExperience">Min. Experience (Years)</label>
+                    <input type="number" id="minExperience" min="0" step="1" value="0">
+                </div>
+            </div>
+
+            <div class="skills-section-label">
+                <i class="fa-solid fa-code"></i>
+                Required Skills
+            </div>
+
+            <div id="jobSkillsContainer">
+                <div class="job-skill-row">
+                    <input type="text" class="job-skill-name" placeholder="Skill name (e.g. Python)">
+                    <select class="job-skill-level">
+                        <option value="Basic">Basic</option>
+                        <option value="Intermediate">Intermediate</option>
+                        <option value="Advanced">Advanced</option>
+                        <option value="Expert">Expert</option>
+                    </select>
+                    <button type="button" class="remove-skill-btn" onclick="removeSkillRow(this)">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" id="addSkillBtn" class="btn-secondary">
+                    <i class="fa-solid fa-plus"></i>
+                    Add Skill
+                </button>
+                <button type="button" id="createJobBtn" class="btn-primary">
+                    <i class="fa-solid fa-briefcase"></i>
+                    Create Job
+                </button>
+            </div>
+        </div>
+
+        <!-- All Job Postings (full width, below) -->
+        <div class="panel-card jobs-list-card">
+            <div class="panel-card-header">
+                <i class="fa-solid fa-list"></i>
+                <h3>All Job Postings</h3>
+                <span id="jobCount" class="job-count-badge">0 jobs</span>
+            </div>
+
+            <div id="jobListingGrid" class="job-listing-grid">
+                <div class="empty-state-full">
+                    <i class="fa-solid fa-briefcase"></i>
+                    <p>No jobs created yet. Use the form above to add your first job posting.</p>
+                </div>
+            </div>
+        </div>
+
+    </section>
+
+    <!-- ==================== CANDIDATE MATCHING PAGE ==================== -->
+    <section id="matchingPage" class="page">
+
+        <div class="page-header">
+            <div>
+                <h1><i class="fa-solid fa-magnifying-glass-chart"></i> Candidate Matching</h1>
+                <p>Select a job and find the best-fit candidates ranked by AI match score.</p>
+            </div>
+        </div>
+
+        <!-- Job Selector Bar -->
+        <div class="matching-controls-bar">
+            <div class="matching-job-select-wrap">
+                <label for="jobSelect"><i class="fa-solid fa-briefcase"></i> Select Job Posting</label>
+                <select id="jobSelect">
+                    <option value="">— Choose a job —</option>
+                </select>
+            </div>
+            <button type="button" id="matchCandidatesBtn" class="btn-primary">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                Find Best Candidates
+            </button>
+        </div>
+
+        <!-- Selected Job Details Badge -->
+        <div id="selectedJobDetails" class="selected-job-details" style="display:none;"></div>
+
+        <!-- Matching Results Grid -->
+        <div id="matchingResults" class="matching-results">
+            <div class="empty-state-full">
+                <i class="fa-solid fa-magnifying-glass-chart"></i>
+                <p>Select a job above and click <strong>Find Best Candidates</strong> to begin.</p>
+            </div>
+        </div>
+
+    </section>
+
+    <!-- ==================== INTERVIEW PAGE ==================== -->
+    <section id="interviewPage" class="page milestone-three">
+
+        <div class="page-header">
+            <div>
+                <h1>Interview Assistance</h1>
+                <p>Generate interview questions and manage candidate interview status.</p>
+            </div>
+            <span class="milestone-badge">Milestone 3</span>
+        </div>
+
+        <div class="interview-grid">
+
+            <!-- Interview Question Generator -->
+            <div class="interview-card">
+                <div class="card-header">
+                    <h2>Interview Question Generator</h2>
+                    <p>AI-generated, role-specific questions (Groq AI)</p>
+                </div>
+
+                <div class="generator-controls">
+                    <div class="form-group">
+                        <label for="interviewJob">Job Position</label>
+                        <select id="interviewJob">
+                            <option value="">Select job</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="questionType">Question Type</label>
+                        <select id="questionType">
+                            <option value="technical">Technical Skills</option>
+                            <option value="behavioral">Behavioral</option>
+                            <option value="scenario">Scenario-based</option>
+                            <option value="experience">Experience-based</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button type="button" id="generateQuestionsBtn" class="btn-primary">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    Generate Questions
+                </button>
+
+                <div id="generatedQuestions" class="questions-container">
+                    <div class="empty-state">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <p>Generate questions to begin.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Interview Simulation -->
+            <div class="interview-card">
+                <div class="card-header">
+                    <h2>AI Interview Simulation</h2>
+                    <p>Select a candidate to start</p>
+                </div>
+
+                <div class="simulation-controls">
+                    <div class="form-group">
+                        <label for="interviewCandidate">Candidate</label>
+                        <select id="interviewCandidate">
+                            <option value="">Select candidate</option>
+                        </select>
+                    </div>
+                    <button type="button" id="startInterviewBtn" class="btn-primary">
+                        Start Interview
+                    </button>
+                </div>
+
+                <div id="interviewChat" class="interview-chat">
+                    <div class="chat-empty">
+                        <i class="fa-solid fa-comments"></i>
+                        <p>Start an interview to begin the AI-simulated conversation.</p>
+                    </div>
+                </div>
+
+                <div class="chat-input-area">
+                    <input type="text" id="candidateResponse" placeholder="Type your response..." disabled>
+                    <button type="button" id="sendResponseBtn" class="btn-secondary" disabled>Send</button>
+                    <button type="button" id="endInterviewBtn" class="btn-secondary" disabled>End Interview</button>
+                </div>
+            </div>
 
         </div>
 
+        <!-- ATS Integration -->
+        <div class="interview-card ats-card">
+            <div class="card-header">
+                <h2>ATS Integration</h2>
+                <p>Mock ATS status per candidate, driven by interview session state</p>
+            </div>
+            <div id="atsCandidates" class="ats-list">
+                <div class="ats-row">
+                    <div class="ats-candidate"><strong>No candidate selected</strong></div>
+                    <span class="status-badge">Not scheduled</span>
+                </div>
+            </div>
+        </div>
+
+    </section>
+
+</main>
+
+<!-- ===================== CANDIDATE PROFILE MODAL ===================== -->
+<div id="candidateModal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close-btn" id="closeModal">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+        <div id="modalBody">
+            <!-- Filled dynamically -->
+        </div>
     </div>
-
 </div>
 
-</section>
+<!-- ===================== SKILL GAP DRAWER ===================== -->
+<div id="skillGapDrawer" class="drawer-overlay">
+    <div class="drawer-panel">
+        <div class="drawer-header">
+            <div>
+                <h2 id="drawerCandidateName">Candidate Details</h2>
+                <p id="drawerCandidateEmail" class="drawer-subtitle"></p>
+            </div>
+            <button class="drawer-close-btn" id="closeDrawer">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div id="drawerBody" class="drawer-body">
+            <!-- Filled dynamically -->
+        </div>
+    </div>
+</div>
 
-<!-- ========================= -->
-<!-- TOAST -->
-<!-- ========================= -->
+<!-- ===================== LOADER ===================== -->
+<div id="loaderOverlay" class="loader-overlay">
+    <div class="loader-box">
+        <div class="spinner"></div>
+        <h3>Processing Resume...</h3>
+        <p>Please wait while we parse candidate information.</p>
+    </div>
+</div>
 
+<!-- ===================== TOAST ===================== -->
 <div id="toast" class="toast">
-
-    Resume uploaded successfully.
-
+    <i class="fa-solid fa-circle-check"></i>
+    <span id="toastMessage">Operation successful.</span>
 </div>
 
-<!-- ========================= -->
-<!-- FOOTER -->
-<!-- ========================= -->
-
-<footer>
-
-    <p>
-
-        © 2026 AI Recruitment Copilot • Resume Parsing System
-
-    </p>
-
-</footer>
-
-<!-- ========================= -->
-<!-- SCRIPT -->
-<!-- ========================= -->
-
+<!-- ===================== SCRIPT ===================== -->
 <script src="script.js"></script>
 
-
-
 </body>
-
 </html>
