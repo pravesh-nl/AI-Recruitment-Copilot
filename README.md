@@ -1,144 +1,565 @@
-README — Milestones 1 & 2
-AI-powered recruitment platform for resume parsing, candidate profiling, job matching, AI skill analysis, ranking and skill-gap identification.
-1. Project Overview
-The platform automates key recruitment activities by converting unstructured resumes into structured candidate profiles and comparing those profiles against job requirements. Milestone 1 establishes the candidate-data foundation, while Milestone 2 performs candidate matching and explainable skill-gap analysis.
-2. Problem Statement
-Manual resume screening is time-consuming because resumes have different formats and layouts. Recruiters must extract candidate information, compare skills with job requirements, evaluate experience and identify missing skills. This project automates these steps and provides a consistent, evidence-based candidate evaluation workflow.
-3. Solution Workflow
-Resume Upload → PDF/DOCX file is submitted through the frontend.
-Resume Parsing → FastAPI receives the file and the parser extracts usable text.
-Candidate Extraction → Candidate name, contact information, skills, education, location and experience are extracted where available.
-Profile Storage → Structured candidate information is validated and stored in the database.
-Job Management → Recruiter creates/selects a job containing required experience and skills with proficiency levels.
-AI Skill Analysis → Groq + LLM analyzes candidate evidence for each required skill.
-Matching → Candidate skills and experience are compared with job requirements.
-Scoring & Ranking → Candidates receive a hiring score and are ranked.
-Skill Gap → Missing or below-required skills are identified with evidence and confidence.
-4. Milestone 1 — Resume Parsing & Candidate Profiling
-Milestone 1 converts unstructured resumes into reusable candidate profiles.
-Resume upload and processing
-PDF/DOCX text extraction
-Candidate information extraction
-Skill extraction and normalization
-Education, location and experience extraction where available
-Candidate profile creation and database storage
-Candidate retrieval and statistics APIs
-Frontend display of processed candidates
-5. Milestone 1 — Backend Components
-Component
-Purpose
-app/main.py
-FastAPI application entry point and route registration.
-app/database.py
-Database connection and session management.
-app/routes/upload.py
-Receives resume uploads and starts processing.
-app/routes/candidate.py
-Provides candidate retrieval APIs.
-app/services/parser.py
-Handles resume/document parsing.
-app/services/extractor.py
-Extracts candidate fields from parsed content.
-app/models/candidate.py
-Defines the candidate database model.
-app/models/upload_history.py
-Tracks upload/processing information.
-app/schemas/
-Defines structured API request/response data.
+# AI-Driven Smart Hiring Platform with Candidate Matching Copilot
 
-6. Milestone 2 — Candidate Matching & Skill-Gap Analysis
-Milestone 2 uses the structured profiles from Milestone 1 and compares them against selected job requirements.
-Job creation and requirements
-Required experience and skill levels
-Candidate-job matching
-Candidate ranking
-Skill-level comparison
-Groq/LLM-based skill analysis
-Hiring score calculation
-Skill-gap analysis
-7. Groq + LLM Skill Analysis
-The Groq API provides access to an LLM that analyzes resume evidence against each required skill. The system does not simply check whether a keyword exists; it evaluates evidence and proficiency.
-Explicit — skill is directly mentioned or clearly demonstrated.
-Inferred — skill is reasonably inferred from project or experience evidence.
-Missing — there is insufficient evidence of the skill.
-Proficiency levels:
-Basic — limited exposure, coursework or simple project usage.
-Intermediate — meaningful practical/project implementation.
-Expert — strong professional/project experience or advanced demonstrated expertise.
-Each analysis can include confidence and supporting evidence, making the result more explainable.
-8. Hiring Score
-The implemented weighting gives greater importance to technical skill suitability:
-Final Score = (Skill Score × 0.80) + (Experience Score × 0.20)
-Skills contribute 80% and experience contributes 20% to the overall hiring score.
-9. Skill Gap Analysis
-Matched Skill — candidate meets the required proficiency.
-Level Gap — candidate has the skill but below the required proficiency.
-Missing Skill — no sufficient evidence of the required skill.
-Evidence and confidence provide context for AI-based decisions.
-10. Tech Stack
-Layer
-Technology
-Language
-Python
-Backend
-FastAPI, Uvicorn
-Database
-SQLite, SQLAlchemy
-Validation
-Pydantic
-Resume Processing
-PDF/DOCX parsing utilities
-NLP / Extraction
-spaCy + rule/pattern-based extraction
-AI / LLM
-Groq API + LLM
-Frontend
-HTML, CSS, JavaScript
+An AI-powered recruitment platform that automates **resume parsing, candidate profiling, job-based candidate matching, skill analysis, candidate ranking, and skill-gap identification**.
 
-11. Project Structure
+The platform is designed to reduce manual resume screening and provide recruiters with a more consistent and explainable candidate evaluation workflow.
+
+---
+
+## 1. Project Overview
+
+Traditional recruitment requires recruiters to manually read resumes, extract candidate information, compare skills with job requirements, evaluate experience, and identify missing skills.
+
+This project automates these activities by:
+
+* Processing resumes automatically
+* Creating structured candidate profiles
+* Managing job requirements
+* Comparing candidates with selected jobs
+* Using an LLM for skill and proficiency analysis
+* Calculating candidate hiring scores
+* Ranking candidates
+* Identifying skill gaps
+
+The project currently covers two completed milestones:
+
+* **Milestone 1:** Resume Parsing & Candidate Profiling
+* **Milestone 2:** Candidate Matching & Skill-Gap Analysis
+
+---
+
+# 2. Problem Statement
+
+Recruiters often receive a large number of resumes with different formats and layouts. Manually screening these resumes is time-consuming and can lead to inconsistent evaluation.
+
+The platform addresses this problem by converting unstructured resumes into structured candidate profiles and then comparing those profiles against specific job requirements.
+
+---
+
+# 3. Solution Workflow
+
+```text
+             RESUME
+                │
+                ▼
+         Resume Upload
+                │
+                ▼
+       PDF / DOCX Parsing
+                │
+                ▼
+     Candidate Information
+          Extraction
+                │
+                ▼
+      Structured Candidate
+            Profile
+                │
+                ▼
+           Database
+                │
+                ▼
+       Job Creation/Selection
+                │
+                ▼
+      Job Requirements
+      + Required Skills
+      + Skill Levels
+      + Experience
+                │
+                ▼
+       Candidate Matching
+                │
+                ▼
+       AI Skill Analysis
+                │
+                ▼
+       Skill Gap Analysis
+                │
+                ▼
+        Hiring Score
+       80% Skills
+       20% Experience
+                │
+                ▼
+       Ranked Candidates
+```
+
+---
+
+# 4. Milestone 1 — Resume Parsing & Candidate Profiling
+
+## Objective
+
+Milestone 1 establishes the candidate-data foundation of the platform.
+
+It converts unstructured PDF/DOCX resumes into structured candidate profiles that can be stored in the database and reused by the matching system.
+
+### Main Features
+
+* Resume upload and processing
+* PDF/DOCX text extraction
+* Candidate name extraction
+* Email and phone extraction
+* Skill extraction
+* Education extraction
+* Location extraction
+* Experience extraction
+* Candidate profile creation
+* Database storage
+* Candidate retrieval APIs
+* Frontend candidate display
+
+---
+
+## Milestone 1 Workflow
+
+1. Recruiter uploads a resume.
+2. FastAPI receives the uploaded file.
+3. Resume text is extracted.
+4. Candidate information is identified.
+5. Extracted information is normalized and validated.
+6. Candidate profile is stored in the database.
+7. Backend APIs provide the processed candidate information.
+8. Frontend displays the candidate profile.
+
+---
+
+# 5. Milestone 1 — Backend Architecture
+
+The backend follows a modular structure where API routes, business logic, database models, and schemas are separated.
+
+This makes the system easier to maintain and allows the parsing system to be reused by later modules.
+
+| Component                      | Purpose                                                |
+| ------------------------------ | ------------------------------------------------------ |
+| `app/main.py`                  | FastAPI application entry point and route registration |
+| `app/database.py`              | Database connection and session management             |
+| `app/routes/upload.py`         | Receives resume uploads and starts processing          |
+| `app/routes/candidate.py`      | Provides candidate retrieval APIs                      |
+| `app/services/parser.py`       | Handles resume/document parsing                        |
+| `app/services/extractor.py`    | Extracts candidate fields from parsed content          |
+| `app/models/candidate.py`      | Defines the candidate database model                   |
+| `app/models/upload_history.py` | Tracks upload/processing information                   |
+| `app/schemas/`                 | Defines structured API request/response data           |
+
+---
+
+# 6. Resume Parsing & Extraction
+
+The resume processing pipeline converts an unstructured resume into structured candidate information.
+
+The system separates:
+
+### Parser
+
+`parser.py`
+
+Responsible for processing the uploaded document and extracting usable text/content from supported resume formats.
+
+### Extractor
+
+`extractor.py`
+
+Responsible for identifying meaningful candidate fields from the parsed content.
+
+These can include:
+
+* Name
+* Email
+* Phone
+* Skills
+* Education
+* Location
+* Experience
+
+This separation makes it easier to improve extraction logic without changing the upload/API layer.
+
+### Important Consideration
+
+Different resumes use different layouts. Therefore, extraction cannot depend only on fixed positions.
+
+Name extraction also requires validation because headings such as:
+
+```text
+Full Name
+Candidate Profile
+Black Box
+Experience
+```
+
+or other prominent text can sometimes be incorrectly interpreted as a person's name.
+
+The system should only store information supported by the resume rather than inventing missing information.
+
+---
+
+# 7. Database
+
+The database provides persistent storage for processed candidate profiles.
+
+The project uses:
+
+* **SQLite** as the database
+* **SQLAlchemy** for database interaction
+
+Candidate information is stored so that the matching engine can later reuse the extracted profile without parsing the original resume again.
+
+The database contains information related to candidates and upload/processing history.
+
+---
+
+# 8. Milestone 2 — Candidate Matching & Skill-Gap Analysis
+
+## Objective
+
+Milestone 2 uses the structured candidate profiles created in Milestone 1 and compares them against job requirements.
+
+The system evaluates:
+
+* Required skills
+* Candidate skills
+* Required skill level
+* Candidate proficiency level
+* Candidate experience
+* Missing skills
+* Skill-level gaps
+* Overall candidate suitability
+
+### Main Features
+
+* Job creation
+* Job requirement management
+* Required experience
+* Required skills
+* Basic/Intermediate/Expert skill levels
+* Candidate-job matching
+* Candidate ranking
+* AI skill analysis
+* Hiring score calculation
+* Skill-gap analysis
+
+---
+
+# 9. Groq + LLM Skill Analysis
+
+The platform uses the **Groq API to access an LLM** for analyzing candidate skills and resume evidence.
+
+The LLM evaluates each required skill and determines its status and proficiency.
+
+## Skill Status
+
+### Explicit
+
+The skill is directly mentioned or clearly demonstrated in the candidate profile.
+
+Example:
+
+```text
+Python is listed in the candidate's skills.
+```
+
+### Inferred
+
+The skill is reasonably inferred from projects or experience.
+
+Example:
+
+```text
+The candidate worked on an AI project,
+suggesting some exposure to Machine Learning.
+```
+
+### Missing
+
+There is insufficient evidence that the candidate possesses the skill.
+
+Example:
+
+```text
+No mention or supporting evidence of Docker.
+```
+
+---
+
+# 10. Skill Proficiency Analysis
+
+The LLM categorizes the candidate's skill level as:
+
+### Basic
+
+Limited exposure, coursework, or simple project usage.
+
+### Intermediate
+
+Meaningful practical or project-level implementation.
+
+### Expert
+
+Strong professional/project experience or advanced demonstrated expertise.
+
+The analysis can also return:
+
+* Confidence
+* Evidence
+* Candidate level
+* Required level
+* Level match
+
+Example:
+
+```json
+{
+  "skill": "Python",
+  "status": "explicit",
+  "level": "Intermediate",
+  "confidence": 0.8,
+  "evidence": "Python is listed in skills and used in projects."
+}
+```
+
+This makes the matching process more explainable than simple keyword matching.
+
+---
+
+# 11. Hiring Score
+
+The candidate score uses the following weighting:
+
+```text
+Skills       = 80%
+Experience   = 20%
+```
+
+The overall score is calculated as:
+
+```text
+Final Score =
+    (Skill Score × 0.80)
+  + (Experience Score × 0.20)
+```
+
+Skills have the higher weight because technical suitability is the primary factor in the candidate matching process.
+
+Experience contributes the remaining 20%.
+
+---
+
+# 12. Skill Gap Analysis
+
+For every selected candidate and job, the system identifies whether the candidate satisfies each required skill.
+
+### Matched Skill
+
+The candidate has the required skill at the required level.
+
+Example:
+
+```text
+Required: Python → Intermediate
+Candidate: Python → Intermediate
+
+Result: Match
+```
+
+### Level Gap
+
+The candidate has the skill but below the required level.
+
+Example:
+
+```text
+Required: Python → Expert
+Candidate: Python → Intermediate
+
+Result: Level Gap
+```
+
+### Missing Skill
+
+There is no sufficient evidence of the required skill.
+
+Example:
+
+```text
+Required: Docker → Basic
+Candidate: Docker → Missing
+
+Result: Missing Skill
+```
+
+The skill-gap analysis also provides supporting evidence and confidence where applicable.
+
+---
+
+# 13. Tech Stack
+
+## Backend
+
+* Python
+* FastAPI
+* Uvicorn
+* Pydantic
+
+## Database
+
+* SQLite
+* SQLAlchemy
+
+## Resume Processing
+
+* PDF/DOCX parsing utilities
+
+## NLP / Extraction
+
+* spaCy
+* Rule/pattern-based extraction
+
+## AI / LLM
+
+* Groq API
+* LLM-based skill and evidence analysis
+
+## Frontend
+
+* HTML
+* CSS
+* JavaScript
+
+---
+
+# 14. Project Structure
+
+```text
 AI-Recruitment-Copilot/
+│
 ├── app/
 │   ├── main.py
 │   ├── database.py
+│   │
 │   ├── routes/
 │   │   ├── upload.py
 │   │   ├── candidate.py
 │   │   ├── job.py
 │   │   └── matching.py
+│   │
 │   ├── services/
 │   │   ├── parser.py
 │   │   ├── extractor.py
 │   │   └── ...
+│   │
 │   ├── models/
 │   └── schemas/
+│
 ├── frontend/
 │   ├── index.html
 │   ├── script.js
 │   └── style.css
+│
 ├── uploads/
 ├── extracted_data/
 ├── .env
 ├── requirements.txt
 └── README.md
-12. Key Challenges
-Different resume layouts and formatting.
-Incorrect name extraction from headings/labels or unrelated prominent text.
-Missing candidate information.
-AI response-format inconsistencies.
-API quota/rate-limit handling.
-Distinguishing explicit skills from reasonable inference.
-Assigning Basic/Intermediate/Expert proficiency from evidence.
-Separating missing skills from skills that are present but below the required level.
-13. Current Status
-Milestone 1 — Resume Parsing & Candidate Profiling: Completed.
-Milestone 2 — Candidate Matching & Skill-Gap Analysis: Completed.
-Core workflow: Resume → Candidate Profile → Job → AI Skill Analysis → Matching → Ranking → Skill Gap.
-14. Future Scope
-Automated interview scheduling
-Advanced candidate recommendation
-Recruiter analytics
-Interview feedback analysis
-Email/notification automation
-Improved semantic resume understanding
-Advanced AI-assisted recruitment workflows
-Project Status: Milestones 1 & 2 Completed
+```
+
+---
+
+# 15. Key Challenges
+
+## Milestone 1
+
+* Different resume layouts and formatting
+* Incorrect name extraction
+* Missing candidate information
+* Resume parsing inconsistencies
+* Database data-type issues
+* Maintaining accuracy across different resume structures
+
+## Milestone 2
+
+* AI response-format inconsistencies
+* Groq API quota/rate-limit issues
+* Distinguishing explicit skills from inferred skills
+* Determining Basic/Intermediate/Expert proficiency
+* Handling missing skills
+* Handling skills that exist but are below the required level
+* Designing a meaningful candidate scoring system
+
+---
+
+# 16. Current Status
+
+### ✅ Milestone 1 — Completed
+
+**Resume Parsing & Candidate Profiling**
+
+Implemented:
+
+* Resume upload
+* PDF/DOCX processing
+* Candidate information extraction
+* Structured candidate profiles
+* Database storage
+* Candidate APIs
+* Frontend candidate display
+
+### ✅ Milestone 2 — Completed
+
+**Candidate Matching & Skill-Gap Analysis**
+
+Implemented:
+
+* Job requirements
+* Required experience
+* Required skills
+* Skill proficiency levels
+* Candidate-job matching
+* Groq + LLM skill analysis
+* Basic/Intermediate/Expert classification
+* Explicit/Inferred/Missing status
+* Hiring score
+* Candidate ranking
+* Skill-gap analysis
+
+---
+
+# 17. Future Scope
+
+Possible future improvements include:
+
+* Automated interview scheduling
+* Advanced candidate recommendation
+* Recruiter analytics dashboard
+* Interview feedback analysis
+* Email/notification automation
+* Improved semantic resume understanding
+* Advanced AI-assisted recruitment workflows
+
+---
+
+## Project Status
+
+**Milestones 1 & 2 Completed**
+
+The current core pipeline is:
+
+```text
+Resume
+   ↓
+Candidate Profile
+   ↓
+Job Requirements
+   ↓
+AI Skill Analysis
+   ↓
+Candidate Matching
+   ↓
+Hiring Score
+   ↓
+Candidate Ranking
+   ↓
+Skill Gap Analysis
+```
+
+
