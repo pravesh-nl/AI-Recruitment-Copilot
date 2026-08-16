@@ -179,98 +179,162 @@ def extract_candidate_details(text):
         if line.strip()
     ]
 
-    # Common resume headings / unwanted text
-    name_blacklist = {
-        "resume",
-        "curriculum vitae",
-        "cv",
-        "contact",
-        "contact information",
-        "objective",
-        "profile",
-        "summary",
-        "education",
-        "experience",
-        "work experience",
-        "projects",
-        "certifications",
-        "skills",
-        "technical skills",
-        "languages",
-        "interests",
-        "hobbies",
-        "references",
-        "email",
-        "phone",
-        "mobile",
-        "Email"
+    # ----------------------------------------------------------------
+    # Words that strongly suggest a line is NOT a candidate name.
+    # These include technical terms, project-related words, job titles,
+    # and other resume section noise.
+    # ----------------------------------------------------------------
+    NAME_POISON_WORDS = {
+        # Technical / AI / ML
+        "ai", "ml", "machine", "learning", "deep", "predictive",
+        "neural", "nlp", "computer", "vision", "analytics", "analysis",
+        "algorithm", "model", "data", "science", "scientist",
+        # Project / product words
+        "black", "box", "system", "project", "platform", "framework",
+        "application", "app", "dashboard", "tool", "engine", "pipeline",
+        "powered", "failure", "maintenance", "detection", "prediction",
+        "building", "using",
+        # Programming languages / tech
+        "python", "java", "javascript", "typescript", "react", "angular",
+        "node", "flask", "django", "fastapi", "sql", "mysql",
+        "mongodb", "aws", "azure", "gcp", "docker", "kubernetes",
+        "github", "git", "linux", "html", "css", "api",
+        # Job titles / professional headlines
+        "developer", "engineer", "analyst", "manager", "consultant",
+        "architect", "designer", "specialist", "lead", "senior",
+        "junior", "intern", "researcher",
+        # Generic resume noise
+        "enthusiast", "professional", "experienced", "certified",
+        # Locations / contact
+        "india", "usa", "uk", "street", "city", "state", "country",
     }
 
-    # First try spaCy PERSON entities
-    for ent in doc.ents:
-        if ent.label_ == "PERSON":
-            candidate_name = ent.text.strip()
-            words = candidate_name.split()
+    # Common resume section headings and non-name lines
+    NAME_BLACKLIST = {
+        "resume", "curriculum vitae", "cv", "contact",
+        "contact information", "objective", "profile", "summary",
+        "education", "experience", "work experience", "projects",
+        "certifications", "skills", "technical skills", "languages",
+        "interests", "hobbies", "references", "email", "phone",
+        "mobile", "details", "links", "name", "full name",
+        "address", "location", "linkedin", "github", "first name", "last name",
+    }
 
-            if (
-                2 <= len(words) <= 4
-                and all(word.replace("-", "").replace("'", "").isalpha()
-                        for word in words)
-            ):
-                data["name"] = candidate_name
-                break
+    # Section headings that mark where the header block ends.
+    # A name must appear BEFORE any of these.
+    SECTION_MARKERS = {
+        "summary", "professional summary", "objective", "profile",
+        "education", "experience", "work experience", "skills",
+        "technical skills", "projects", "certifications",
+        "employment history", "internship", "internships",
+    }
 
-    # Fallback: inspect first few resume lines
+    def _is_name_line(line: str) -> bool:
+        """
+        Returns True if `line` looks like a standalone human name.
+        Applies every rejection heuristic defined above.
+        """
+        clean = line.strip()
+        lower = clean.lower()
+
+        # Reject exact section headings / blacklisted phrases
+        if lower in NAME_BLACKLIST:
+            return False
+
+        # Reject lines with contact / URL signals
+        if any(kw in lower for kw in [
+            "cgpa", "gpa", "@", "email", "phone", "mobile",
+            "linkedin", "github", "http", "www.", "|", "/",
+        ]):
+            return False
+
+        # Reject lines that contain digits
+        if any(ch.isdigit() for ch in clean):
+            return False
+
+        # Reject lines that look like job-title headlines
+        # (contain pipe separators, slashes, commas, or parentheses)
+        if any(ch in clean for ch in ["|", "/", ",", "(", ")"]):
+            return False
+
+        # Reject lines with poisoned technical / project words
+        words_lower = lower.split()
+        if any(w in NAME_POISON_WORDS for w in words_lower):
+            return False
+
+        # A human name is normally 2–4 words, all alphabetic
+        words = clean.split()
+        if not (2 <= len(words) <= 4):
+            return False
+
+        if not all(w.replace("-", "").replace("'", "").isalpha() for w in words):
+            return False
+
+        return True
+
+    def _find_header_boundary(lines) -> int:
+        """
+        Returns the index of the first line that looks like a section
+        heading.  The name must appear before this boundary.
+        """
+        for i, line in enumerate(lines):
+            if line.strip().lower() in SECTION_MARKERS:
+                return i
+        # If no section found within first 30 lines, use 30 as soft limit
+        return min(30, len(lines))
+
+    # ----------------------------------------------------------------
+    # STRATEGY 1 (PRIMARY): Scan the very top of the resume.
+    # The candidate name is almost always the first meaningful line
+    # before any contact info / section heading.
+    # ----------------------------------------------------------------
+    header_boundary = _find_header_boundary(lines)
+    # Search within header block (capped at 20 lines for safety)
+    search_limit = min(header_boundary, 20)
+
+    for line in lines[:search_limit]:
+        if _is_name_line(line):
+            data["name"] = line.strip().title()
+            break
+
+    # ----------------------------------------------------------------
+    # STRATEGY 2 (FALLBACK): Use spaCy PERSON NER — but only if the
+    # top-line scan found nothing AND the entity passes all guards.
+    #
+    # Key guards:
+    #  a) The entity text must pass the same _is_name_line() filter.
+    #  b) The entity must appear in the TOP PORTION of the full text
+    #     (character offset within first 25 % of document).
+    #  c) The entity must NOT appear after a section heading marker.
+    # ----------------------------------------------------------------
     if not data["name"]:
+        doc_len = len(text)
+        top_cutoff = max(300, int(doc_len * 0.25))  # first 25 % or 300 chars
 
-        for line in lines[:15]:
+        best_name = ""
+        best_start = doc_len  # lower (earlier) is better
 
-            clean = line.strip()
-            lower = clean.lower()
-
-            # Reject obvious non-name lines
-            if lower in name_blacklist:
+        for ent in doc.ents:
+            if ent.label_ != "PERSON":
                 continue
 
-            if any(
-                keyword in lower
-                for keyword in [
-                    "cgpa",
-                    "gpa",
-                    "email",
-                    "phone",
-                    "mobile",
-                    "linkedin",
-                    "github",
-                    "http",
-                    "www."
-                ]
-            ):
+            candidate_name = ent.text.strip()
+
+            # Must pass the same name-line filter
+            if not _is_name_line(candidate_name):
                 continue
 
-            # Reject lines containing numbers
-            if any(char.isdigit() for char in clean):
+            # Must appear in the top portion of the document
+            if ent.start_char > top_cutoff:
                 continue
 
-            # A normal name should contain 2–4 words
-            words = clean.split()
+            # Prefer the earliest PERSON entity
+            if ent.start_char < best_start:
+                best_start = ent.start_char
+                best_name = candidate_name
 
-            if not (2 <= len(words) <= 4):
-                continue
-
-            # Only alphabetic name-like words
-            if all(
-                word.replace("-", "").replace("'", "").isalpha()
-                for word in words
-            ):
-                data["name"] = clean.title()
-                data["name"] = (
-                data["name"]
-                .replace("Email", "")
-                .replace("EMAIL", "")
-                .strip()
-            )
-                break
+        if best_name:
+            data["name"] = best_name.title()
 
     # -----------------------------
 
