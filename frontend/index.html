@@ -351,8 +351,8 @@
 
         <div class="page-header">
             <div>
-                <h1>Interview Assistance</h1>
-                <p>Generate interview questions and manage candidate interview status.</p>
+                <h1><i class="fa-solid fa-comments"></i> Interview Assistant</h1>
+                <p>Generate AI-powered, role-specific interview questions using Groq AI.</p>
             </div>
             <span class="milestone-badge">Milestone 3</span>
         </div>
@@ -378,8 +378,9 @@
                         <select id="questionType">
                             <option value="technical">Technical Skills</option>
                             <option value="behavioral">Behavioral</option>
-                            <option value="scenario">Scenario-based</option>
-                            <option value="experience">Experience-based</option>
+                            <option value="scenario-based">Scenario-based</option>
+                            <option value="experience-based">Experience-based</option>
+                            <option value="hr">HR</option>
                         </select>
                     </div>
                 </div>
@@ -401,19 +402,38 @@
             <div class="interview-card">
                 <div class="card-header">
                     <h2>AI Interview Simulation</h2>
-                    <p>Select a candidate to start</p>
+                    <p>Live AI-powered chat interview for a selected candidate</p>
                 </div>
 
                 <div class="simulation-controls">
+                    <!-- Row 1: Candidate | Job -->
                     <div class="form-group">
                         <label for="interviewCandidate">Candidate</label>
                         <select id="interviewCandidate">
                             <option value="">Select candidate</option>
                         </select>
                     </div>
-                    <button type="button" id="startInterviewBtn" class="btn-primary">
-                        Start Interview
-                    </button>
+                    <div class="form-group">
+                        <label for="simInterviewJob">Job Position</label>
+                        <select id="simInterviewJob">
+                            <option value="">Select job</option>
+                        </select>
+                    </div>
+                    <!-- Row 2: Mode | Start button -->
+                    <div class="form-group">
+                        <label for="interviewMode">Interview Mode</label>
+                        <select id="interviewMode">
+                            <option value="technical">Technical</option>
+                            <option value="behavioral">Behavioral</option>
+                            <option value="mixed">Mixed</option>
+                        </select>
+                    </div>
+                    <div class="form-group sim-start-col">
+                        <label>&nbsp;</label>
+                        <button type="button" id="startInterviewBtn" class="btn-primary sim-start-btn">
+                            <i class="fa-solid fa-play"></i> Start Interview
+                        </button>
+                    </div>
                 </div>
 
                 <div id="interviewChat" class="interview-chat">
@@ -425,8 +445,12 @@
 
                 <div class="chat-input-area">
                     <input type="text" id="candidateResponse" placeholder="Type your response..." disabled>
-                    <button type="button" id="sendResponseBtn" class="btn-secondary" disabled>Send</button>
-                    <button type="button" id="endInterviewBtn" class="btn-secondary" disabled>End Interview</button>
+                    <button type="button" id="sendResponseBtn" class="btn-secondary" disabled>
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                    <button type="button" id="endInterviewBtn" class="btn-secondary" disabled>
+                        <i class="fa-solid fa-flag-checkered"></i> End
+                    </button>
                 </div>
             </div>
 
@@ -439,9 +463,8 @@
                 <p>Mock ATS status per candidate, driven by interview session state</p>
             </div>
             <div id="atsCandidates" class="ats-list">
-                <div class="ats-row">
-                    <div class="ats-candidate"><strong>No candidate selected</strong></div>
-                    <span class="status-badge">Not scheduled</span>
+                <div class="ats-row" id="ats-loading-row">
+                    <div class="ats-candidate"><i class="fa-solid fa-spinner fa-spin" style="margin-right:6px;"></i> Loading ATS records...</div>
                 </div>
             </div>
         </div>

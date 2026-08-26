@@ -5,6 +5,7 @@ from app.database import Base, engine
 from app.models.upload_history import UploadHistory
 from app.models.candidate import Candidate
 from app.models.job import Job
+from app.models.interview_session import InterviewSession
 from app.routes.job import router as job_router
 from app.routes.upload import router as upload_router
 from app.routes.candidate import router as candidate_router

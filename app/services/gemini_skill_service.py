@@ -20,7 +20,7 @@ def call_gemini_with_retry(prompt):
 
         try:
             response = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
                 messages=[
                     {
                         "role": "user",
@@ -134,7 +134,7 @@ Example:
 
     try:
         response = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
                 messages=[
                     {
                         "role": "user",
@@ -169,38 +169,29 @@ Example:
     # ========================================================
 
     try:
-
         text = response.choices[0].message.content
 
-        # Remove markdown code fences if Gemini adds them
+        # Remove markdown code fences if the model adds them
         if text.startswith("```"):
-
-            text = text.replace(
-                "```json",
-                ""
-            )
-
-            text = text.replace(
-                "```",
-                ""
-            )
-
+            text = text.replace("```json", "")
+            text = text.replace("```", "")
             text = text.strip()
 
-            data = json.loads(text)
+        # Parse the JSON — handles both fenced and plain-JSON responses
+        data = json.loads(text)
 
-            # If model returns direct list
-            if isinstance(data, list):
-                return data
+        # If model returns a direct list
+        if isinstance(data, list):
+            return data
 
-            # If model returns {"skills": [...]}
-            elif isinstance(data, dict):
-                return data.get("skills", [])
+        # If model returns {"skills": [...]}
+        elif isinstance(data, dict):
+            return data.get("skills", [])
 
-            else:
-                return []
+        else:
+            return []
+
     except Exception as e:
-
         print(
             f"\n[WARNING] Failed to parse Gemini response: {e}\n"
         )
@@ -218,42 +209,3 @@ Example:
             }
             for skill in required_skills
         ]
-
-
-
-# ------------------------------------------------------------
-# Gemini request with retry
-# ------------------------------------------------------------
-
-    for attempt in range(3):
-
-        try:
-
-            response = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                temperature=0
-            )
-            break
-
-        except errors.ServerError as e:
-
-            if attempt == 2:
-                raise
-
-            time.sleep(2 * (attempt + 1))
-
-    text = response.choices[0].message.content
-
-    # Remove markdown code fences if Gemini adds them
-    if text.startswith("```"):
-        text = text.replace("```json", "")
-        text = text.replace("```", "")
-        text = text.strip()
-
-    return json.loads(text)

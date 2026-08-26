@@ -445,6 +445,9 @@ def calculate_match(candidate, job):
         "certifications": parse_data(candidate.certifications)
     }
 
+    # Initialize candidate_skills set for fallback use
+    candidate_skills = get_candidate_skills(candidate)
+
     # --------------------------------------------------------
     # Get required skill names
     # --------------------------------------------------------

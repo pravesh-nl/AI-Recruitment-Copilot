@@ -1794,7 +1794,136 @@ tbody tr:last-child td { border-bottom: none; }
     color: var(--text-muted);
 }
 
-.generator-controls, .simulation-controls { margin-bottom: 16px; }
+.generator-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.simulation-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+/* The Start Interview button fills its form-group cell vertically */
+.sim-start-col { display: flex; flex-direction: column; }
+
+.sim-start-btn {
+    align-self: flex-end; /* aligns to bottom of the cell, matching the select height */
+    height: 42px;
+    width: 100%;
+}
+
+@media (max-width: 600px) {
+    .simulation-controls { grid-template-columns: 1fr; }
+}
+
+/* ===========================
+   CHAT BUBBLES
+=========================== */
+.chat-role-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 5px;
+    opacity: .6;
+}
+
+.chat-message {
+    margin-bottom: 14px;
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.chat-message p { margin: 0; }
+
+.chat-message.ai {
+    background: var(--accent-blue-bg);
+    border: 1px solid #bfdbfe;
+}
+
+.chat-message.ai .chat-role-label { color: var(--accent-blue); }
+
+.chat-message.user {
+    background: var(--primary-bg);
+    border: 1px solid rgba(255,106,0,.18);
+    margin-left: 20px;
+}
+
+.chat-message.user .chat-role-label { color: var(--primary); }
+
+/* Typing dots animation */
+.typing-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 0;
+}
+
+.typing-dots span {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent-blue);
+    display: inline-block;
+    animation: typingBounce 1.2s infinite ease-in-out;
+}
+
+.typing-dots span:nth-child(2) { animation-delay: .2s; }
+.typing-dots span:nth-child(3) { animation-delay: .4s; }
+
+@keyframes typingBounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: .5; }
+    40%            { transform: translateY(-6px); opacity: 1; }
+}
+
+/* ===========================
+   SIM SUMMARY CARD
+=========================== */
+.sim-summary-card {
+    background: var(--green-bg);
+    border: 1.5px solid #86efac;
+    border-radius: var(--radius-md);
+    padding: 20px;
+    margin-top: 14px;
+}
+
+.sim-summary-header {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--green);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sim-summary-text {
+    font-size: 13.5px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    white-space: pre-line;
+    margin-bottom: 16px;
+}
+
+.sim-restart-btn {
+    font-size: 13px;
+    padding: 9px 18px;
+}
+
+
+@media (max-width: 600px) {
+    .generator-controls {
+        grid-template-columns: 1fr;
+    }
+}
+
 
 .questions-container {
     margin-top: 20px;
@@ -1831,9 +1960,74 @@ tbody tr:last-child td { border-bottom: none; }
 .question-text {
     font-size: 14px;
     color: var(--text-secondary);
-    line-height: 1.5;
+    line-height: 1.6;
     padding-top: 4px;
+    flex: 1;
 }
+
+.question-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 10px;
+    min-width: 0;
+}
+
+.btn-regenerate {
+    align-self: flex-start;
+    background: var(--bg);
+    color: var(--text-secondary);
+    border: 1.5px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    padding: 6px 13px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.btn-regenerate:hover {
+    background: var(--primary-bg);
+    color: var(--primary);
+    border-color: rgba(255,106,0,.35);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(255,106,0,.12);
+}
+
+.btn-regenerate:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Permanently exhausted state — override the base disabled opacity for clarity */
+.btn-regenerate--exhausted {
+    background: #f3f4f6;
+    color: var(--text-muted);
+    border-color: var(--border);
+    opacity: 1 !important;
+    cursor: not-allowed;
+    font-size: 11.5px;
+    letter-spacing: .1px;
+}
+
+.btn-regenerate--exhausted i {
+    color: var(--text-muted);
+}
+
+/* Remaining-count badge inside the regenerate button */
+.regen-count-label {
+    font-size: 11px;
+    font-weight: 500;
+    opacity: .7;
+    margin-left: 1px;
+}
+
+
 
 .interview-chat {
     margin-top: 16px;
@@ -1991,4 +2185,79 @@ tbody tr:last-child td { border-bottom: none; }
     .drawer-panel { width: 100vw; }
 
     .stats-grid { grid-template-columns: 1fr; }
+}
+
+/* ==========================================================
+   INTERVIEW FEEDBACK STYLES
+========================================================== */
+
+.feedback-section {
+    margin-bottom: 20px;
+}
+
+.feedback-section:last-child {
+    margin-bottom: 0;
+}
+
+.feedback-section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+}
+
+.feedback-overall-score {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff;
+    padding: 16px 20px;
+    border-radius: var(--radius-md);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+}
+
+.fos-label {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.fos-value {
+    font-size: 28px;
+    font-weight: 800;
+}
+
+.feedback-skill-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--bg-alt);
+    margin-bottom: 6px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+}
+
+.fs-name {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.fs-score {
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.feedback-list {
+    list-style-type: disc;
+    padding-left: 20px;
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.feedback-list li {
+    margin-bottom: 6px;
 }

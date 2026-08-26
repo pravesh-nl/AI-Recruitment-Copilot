@@ -13,6 +13,13 @@ let deletedJobIds = new Set(); // frontend-only soft delete
 let allCandidatesCache = [];   // cached for search filtering
 
 /* ----------------------------------------------------------
+   INTERVIEW STATE
+---------------------------------------------------------- */
+const MAX_REGENS  = 2;           // maximum regenerations per question
+const regenCounts = new Map();   // index → count of regenerations used
+
+
+/* ----------------------------------------------------------
    DOM REFS — Upload Page
 ---------------------------------------------------------- */
 const resumeInput    = document.getElementById("resumeInput");
@@ -65,10 +72,25 @@ const drawerBody          = document.getElementById("drawerBody");
 const closeDrawer         = document.getElementById("closeDrawer");
 
 /* ----------------------------------------------------------
-   DOM REFS — Interview Page
+   DOM REFS — Interview Page (Question Generator)
 ---------------------------------------------------------- */
 const generateQuestionsBtn = document.getElementById("generateQuestionsBtn");
 const generatedQuestions   = document.getElementById("generatedQuestions");
+
+/* ----------------------------------------------------------
+   DOM REFS — Interview Page (Simulation)
+---------------------------------------------------------- */
+const startInterviewBtn  = document.getElementById("startInterviewBtn");
+const sendResponseBtn    = document.getElementById("sendResponseBtn");
+const endInterviewBtn    = document.getElementById("endInterviewBtn");
+const candidateResponse  = document.getElementById("candidateResponse");
+const interviewChat      = document.getElementById("interviewChat");
+
+/* ----------------------------------------------------------
+   SIMULATION STATE
+---------------------------------------------------------- */
+let currentSessionId  = null;   // UUID returned by /interview/start
+let simulationActive  = false;  // guards the send/end buttons
 
 /* ----------------------------------------------------------
    TOAST
@@ -104,6 +126,9 @@ menuItems.forEach(item => {
         item.classList.add("active");
         const pageId = item.dataset.page;
         document.getElementById(pageId).classList.add("active-page");
+
+        // Persist current page in URL hash so reload returns here
+        history.replaceState(null, "", `#${pageId}`);
 
         // Lazy-load matching page jobs when navigating there
         if (pageId === "matchingPage") {
@@ -654,18 +679,32 @@ async function loadJobsIntoDropdown() {
         });
         if (currentVal) jobSelect.value = currentVal;
 
-        // Interview page dropdown
+        // Interview Question Generator dropdown
         const interviewJobSel = document.getElementById("interviewJob");
         if (interviewJobSel) {
             const ivCurrentVal = interviewJobSel.value;
             interviewJobSel.innerHTML = `<option value="">Select job</option>`;
             visibleJobs.forEach(job => {
                 const opt = document.createElement("option");
-                opt.value       = job.title;
+                opt.value       = job.id;
                 opt.textContent = job.title;
                 interviewJobSel.appendChild(opt);
             });
             if (ivCurrentVal) interviewJobSel.value = ivCurrentVal;
+        }
+
+        // Interview Simulation Job dropdown
+        const simJobSel = document.getElementById("simInterviewJob");
+        if (simJobSel) {
+            const simCurrentVal = simJobSel.value;
+            simJobSel.innerHTML = `<option value="">Select job</option>`;
+            visibleJobs.forEach(job => {
+                const opt = document.createElement("option");
+                opt.value       = job.id;
+                opt.textContent = job.title;
+                simJobSel.appendChild(opt);
+            });
+            if (simCurrentVal) simJobSel.value = simCurrentVal;
         }
 
         return visibleJobs;
@@ -988,10 +1027,10 @@ function renderSkillGapDrawer(data) {
    INTERVIEW QUESTIONS  —  POST /interview/generate-questions
 ========================================================== */
 generateQuestionsBtn.addEventListener("click", async () => {
-    const jobTitle    = document.getElementById("interviewJob").value.trim();
+    const jobId       = document.getElementById("interviewJob").value;
     const questionType = document.getElementById("questionType").value;
 
-    if (!jobTitle) {
+    if (!jobId) {
         showToast("Please select a job position.", true);
         return;
     }
@@ -1009,43 +1048,147 @@ generateQuestionsBtn.addEventListener("click", async () => {
         const response = await fetch(`${API}/interview/generate-questions`, {
             method:  "POST",
             headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({ job_title: jobTitle, question_type: questionType })
+            body:    JSON.stringify({
+                job_id:        parseInt(jobId),
+                question_type: questionType
+            })
         });
 
         const data = await response.json();
 
         if (!response.ok) throw new Error(data.detail || "Failed to generate questions.");
 
-        displayGeneratedQuestions(data.questions);
+        displayGeneratedQuestions(data.questions, parseInt(jobId), questionType);
 
     } catch (error) {
         console.error("Interview Question Error:", error);
         generatedQuestions.innerHTML = `
             <div class="empty-state">
                 <i class="fa-solid fa-triangle-exclamation" style="color:#dc2626;"></i>
-                <p>Failed to generate questions.</p>
+                <p>${escapeHTML(error.message) || "Failed to generate questions. Is the backend running?"}</p>
             </div>`;
+        showToast(error.message || "Failed to generate questions.", true);
     } finally {
         generateQuestionsBtn.disabled = false;
         generateQuestionsBtn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Generate Questions`;
     }
 });
 
-function displayGeneratedQuestions(questions) {
-    const lines = questions
-        .split("\n")
-        .map(l => l.trim())
-        .filter(l => l.length > 0);
+function displayGeneratedQuestions(questions, jobId, questionType) {
+    // questions is already an array from the API
+    if (!Array.isArray(questions) || questions.length === 0) {
+        generatedQuestions.innerHTML = `
+            <div class="empty-state">
+                <i class="fa-solid fa-triangle-exclamation" style="color:#dc2626;"></i>
+                <p>No questions were generated. Please try again.</p>
+            </div>`;
+        return;
+    }
+
+    // Reset per-question regeneration counters for this new set
+    regenCounts.clear();
 
     generatedQuestions.innerHTML = "";
-    lines.forEach((question, index) => {
+
+    questions.forEach((question, index) => {
+        regenCounts.set(index, 0);
+
         const card = document.createElement("div");
         card.className = "question-card";
+        card.id = `question-card-${index}`;
+        card.dataset.jobId        = jobId;
+        card.dataset.questionType = questionType;
+
         card.innerHTML = `
             <div class="question-number">${index + 1}</div>
-            <div class="question-text">${escapeHTML(question.replace(/^\d+[.)]\s*/, ""))}</div>`;
+            <div class="question-body">
+                <div class="question-text">${escapeHTML(question)}</div>
+                <button
+                    class="btn-regenerate"
+                    id="regen-btn-${index}"
+                    title="Regenerate this question (${MAX_REGENS - 0} remaining)"
+                    onclick="regenerateSingleQuestion(${index})"
+                >
+                    <i class="fa-solid fa-rotate"></i>
+                    Regenerate <span class="regen-count-label">(${MAX_REGENS} left)</span>
+                </button>
+            </div>`;
         generatedQuestions.appendChild(card);
     });
+}
+
+async function regenerateSingleQuestion(index) {
+    const card = document.getElementById(`question-card-${index}`);
+    if (!card) return;
+
+    const jobId        = parseInt(card.dataset.jobId);
+    const questionType = card.dataset.questionType;
+    const regenBtn     = document.getElementById(`regen-btn-${index}`);
+    const textEl       = card.querySelector(".question-text");
+
+    // Guard: enforce max regenerations
+    const currentCount = regenCounts.get(index) || 0;
+    if (currentCount >= MAX_REGENS) return;
+
+    // Loading state
+    regenBtn.disabled = true;
+    regenBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Regenerating...`;
+    textEl.style.opacity = "0.4";
+    textEl.style.transition = "opacity 0.2s";
+
+    const currentQuestion = textEl.textContent.trim();
+
+    try {
+        const response = await fetch(`${API}/interview/regenerate-question`, {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({
+                job_id:        jobId,
+                question_type: questionType,
+                question:      currentQuestion
+            })
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || "Failed to regenerate question.");
+
+        // Replace only this question's text
+        textEl.textContent = data.question.trim();
+        textEl.style.opacity = "1";
+
+        // Increment and persist the counter for this question
+        const newCount = currentCount + 1;
+        regenCounts.set(index, newCount);
+
+        const remaining = MAX_REGENS - newCount;
+
+        if (newCount >= MAX_REGENS) {
+            // Lock the button permanently
+            regenBtn.disabled = true;
+            regenBtn.innerHTML = `<i class="fa-solid fa-ban"></i> Regeneration limit reached`;
+            regenBtn.classList.add("btn-regenerate--exhausted");
+        } else {
+            regenBtn.disabled = false;
+            regenBtn.innerHTML = `
+                <i class="fa-solid fa-rotate"></i>
+                Regenerate <span class="regen-count-label">(${remaining} left)</span>`;
+            regenBtn.title = `Regenerate this question (${remaining} remaining)`;
+        }
+
+        showToast(`Question ${index + 1} regenerated.`);
+
+    } catch (error) {
+        console.error("Regenerate Error:", error);
+        textEl.style.opacity = "1";
+
+        const remaining = MAX_REGENS - currentCount;
+        regenBtn.disabled = false;
+        regenBtn.innerHTML = `
+            <i class="fa-solid fa-rotate"></i>
+            Regenerate <span class="regen-count-label">(${remaining} left)</span>`;
+
+        showToast(error.message || "Failed to regenerate question.", true);
+    }
 }
 
 /* ==========================================================
@@ -1057,11 +1200,32 @@ window.addEventListener("DOMContentLoaded", async () => {
     await loadCandidates();
     await loadJobListingGrid();
     await loadJobsIntoDropdown();
+    await loadCandidatesIntoSimDropdown();
+    await loadAtsCandidates();
 
     // Wire candidate search input
     const searchInput = document.getElementById("candidateSearchInput");
     if (searchInput) {
         searchInput.addEventListener("input", () => filterCandidates(searchInput.value));
+    }
+
+    // Restore the active page from URL hash (survives Live Server auto-reloads)
+    const hash = window.location.hash.replace("#", ""); // e.g. "jobsPage"
+    const targetPage = hash ? document.getElementById(hash) : null;
+    const targetMenuItem = hash
+        ? document.querySelector(`[data-page="${hash}"]`)
+        : null;
+
+    if (targetPage && targetMenuItem) {
+        // Deactivate defaults
+        pages.forEach(p => p.classList.remove("active-page"));
+        menuItems.forEach(i => i.classList.remove("active"));
+        // Activate the saved page
+        targetPage.classList.add("active-page");
+        targetMenuItem.classList.add("active");
+
+        // Lazy-load if needed
+        if (hash === "matchingPage") loadJobsIntoDropdown();
     }
 });
 
@@ -1089,4 +1253,418 @@ function escapeHTML(str) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
+}
+
+/* ==========================================================
+   AI INTERVIEW SIMULATION
+========================================================== */
+
+/* ----------------------------------------------------------
+   Load candidates into the simulation Candidate dropdown
+---------------------------------------------------------- */
+async function loadCandidatesIntoSimDropdown() {
+    const sel = document.getElementById("interviewCandidate");
+    if (!sel) return;
+    try {
+        const res        = await fetch(`${API}/candidates`, { cache: "no-store" });
+        const candidates = await res.json();
+
+        const currentVal = sel.value;
+        sel.innerHTML = `<option value="">Select candidate</option>`;
+        candidates.forEach(c => {
+            const opt = document.createElement("option");
+            opt.value       = c.id;
+            opt.textContent = c.name || `Candidate #${c.id}`;
+            sel.appendChild(opt);
+        });
+        if (currentVal) sel.value = currentVal;
+    } catch (err) {
+        console.error("Load Candidates Sim Dropdown Error:", err);
+    }
+}
+
+/* ----------------------------------------------------------
+   Start Interview  —  POST /interview/start
+---------------------------------------------------------- */
+startInterviewBtn.addEventListener("click", async () => {
+    const candidateId   = document.getElementById("interviewCandidate").value;
+    const jobId         = document.getElementById("simInterviewJob").value;
+    const interviewMode = document.getElementById("interviewMode").value;
+
+    if (!candidateId) { showToast("Please select a candidate.", true); return; }
+    if (!jobId)       { showToast("Please select a job position.", true); return; }
+    if (!interviewMode) { showToast("Please select an interview mode.", true); return; }
+
+    startInterviewBtn.disabled = true;
+    startInterviewBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Starting...`;
+
+    // Clear and show loading in chat
+    interviewChat.innerHTML = `
+        <div class="chat-empty">
+            <i class="fa-solid fa-spinner fa-spin" style="font-size:28px;color:var(--primary);"></i>
+            <p>Connecting to AI Interviewer...</p>
+        </div>`;
+
+    try {
+        const response = await fetch(`${API}/interview/start`, {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({
+                candidate_id:   parseInt(candidateId),
+                job_id:         parseInt(jobId),
+                interview_mode: interviewMode
+            })
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || "Failed to start interview.");
+
+        // Store session and activate chat
+        currentSessionId = data.session_id;
+        simulationActive = true;
+
+        interviewChat.innerHTML = "";
+        appendChatMessage("ai", data.initial_message);
+
+        // Enable input controls
+        candidateResponse.disabled = false;
+        sendResponseBtn.disabled   = false;
+        endInterviewBtn.disabled   = false;
+        candidateResponse.focus();
+
+        // Disable start controls to prevent double-start
+        document.getElementById("interviewCandidate").disabled = true;
+        document.getElementById("simInterviewJob").disabled    = true;
+        document.getElementById("interviewMode").disabled      = true;
+        startInterviewBtn.innerHTML = `<i class="fa-solid fa-circle-check"></i> In Progress`;
+        
+        await loadAtsCandidates();
+
+    } catch (error) {
+        console.error("Start Interview Error:", error);
+        interviewChat.innerHTML = `
+            <div class="chat-empty">
+                <i class="fa-solid fa-triangle-exclamation" style="color:#dc2626;font-size:28px;"></i>
+                <p>${escapeHTML(error.message) || "Failed to start interview. Is the backend running?"}</p>
+            </div>`;
+        showToast(error.message || "Failed to start interview.", true);
+        startInterviewBtn.disabled = false;
+        startInterviewBtn.innerHTML = `<i class="fa-solid fa-play"></i> Start Interview`;
+    }
+});
+
+/* ----------------------------------------------------------
+   Send message  —  POST /interview/{session_id}/message
+---------------------------------------------------------- */
+sendResponseBtn.addEventListener("click", sendSimMessage);
+
+candidateResponse.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !sendResponseBtn.disabled) sendSimMessage();
+});
+
+async function sendSimMessage() {
+    const message = candidateResponse.value.trim();
+    if (!message)           return;
+    if (!simulationActive)  return;
+    if (!currentSessionId)  return;
+
+    // Show user bubble immediately
+    appendChatMessage("user", message);
+    candidateResponse.value    = "";
+    sendResponseBtn.disabled   = true;
+    candidateResponse.disabled = true;
+
+    // Show AI typing indicator
+    const typingId = appendAiTyping();
+
+    try {
+        const response = await fetch(`${API}/interview/${currentSessionId}/message`, {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ message })
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || "Failed to send message.");
+
+        // Replace typing indicator with real AI response
+        const typingEl = document.getElementById(typingId);
+        if (typingEl) typingEl.remove();
+        appendChatMessage("ai", data.ai_response);
+
+    } catch (error) {
+        console.error("Send Message Error:", error);
+        const typingEl = document.getElementById(typingId);
+        if (typingEl) typingEl.remove();
+        appendChatMessage("ai", "⚠️ Something went wrong. Please try again.");
+        showToast(error.message || "Failed to get AI response.", true);
+    } finally {
+        sendResponseBtn.disabled   = false;
+        candidateResponse.disabled = false;
+        candidateResponse.focus();
+    }
+}
+
+/* ----------------------------------------------------------
+   End Interview  —  POST /interview/{session_id}/end
+---------------------------------------------------------- */
+endInterviewBtn.addEventListener("click", async () => {
+    if (!currentSessionId) return;
+
+    endInterviewBtn.disabled   = true;
+    sendResponseBtn.disabled   = true;
+    candidateResponse.disabled = true;
+    endInterviewBtn.innerHTML  = `<i class="fa-solid fa-spinner fa-spin"></i> Ending...`;
+
+    try {
+        const response = await fetch(`${API}/interview/${currentSessionId}/end`, {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" }
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || "Failed to end interview.");
+
+        simulationActive = false;
+        
+        // Ensure inputs are permanently disabled until reset
+        sendResponseBtn.disabled   = true;
+        candidateResponse.disabled = true;
+        endInterviewBtn.style.display = "none"; // Hide end button to prevent confusion
+        
+        showSimSummary(data.summary);
+        showToast("Interview ended. Summary generated.");
+        
+        await loadAtsCandidates();
+
+    } catch (error) {
+        console.error("End Interview Error:", error);
+        showToast(error.message || "Failed to end the interview.", true);
+        endInterviewBtn.disabled = false;
+        endInterviewBtn.innerHTML = `<i class="fa-solid fa-flag-checkered"></i> End`;
+    }
+});
+
+/* ----------------------------------------------------------
+   Helper: append a chat bubble (role: "ai" | "user")
+---------------------------------------------------------- */
+function appendChatMessage(role, text) {
+    const div = document.createElement("div");
+    div.className = `chat-message ${role}`;
+
+    const prefix = role === "ai"
+        ? `<span class="chat-role-label"><i class="fa-solid fa-robot"></i> AI Interviewer</span>`
+        : `<span class="chat-role-label"><i class="fa-solid fa-user"></i> You</span>`;
+
+    div.innerHTML = `${prefix}<p>${escapeHTML(text)}</p>`;
+    interviewChat.appendChild(div);
+    interviewChat.scrollTop = interviewChat.scrollHeight;
+}
+
+/* ----------------------------------------------------------
+   Helper: append AI typing indicator, return its DOM id
+---------------------------------------------------------- */
+function appendAiTyping() {
+    const id  = `typing-${Date.now()}`;
+    const div = document.createElement("div");
+    div.className = "chat-message ai chat-typing";
+    div.id = id;
+    div.innerHTML = `
+        <span class="chat-role-label"><i class="fa-solid fa-robot"></i> AI Interviewer</span>
+        <p class="typing-dots"><span></span><span></span><span></span></p>`;
+    interviewChat.appendChild(div);
+    interviewChat.scrollTop = interviewChat.scrollHeight;
+    return id;
+}
+
+/* ----------------------------------------------------------
+   Helper: display the interview summary card (Structured JSON)
+---------------------------------------------------------- */
+function showSimSummary(summary) {
+    let summaryData = summary;
+    if (typeof summary === "string") {
+        try {
+            summaryData = JSON.parse(summary);
+        } catch (e) {
+            summaryData = {
+                overall_score: "N/A",
+                skill_ratings: [],
+                strengths: [],
+                areas_for_improvement: [],
+                overall_feedback: summary
+            };
+        }
+    }
+
+    const overallScore = summaryData.overall_score || "N/A";
+    const skillRatings = Array.isArray(summaryData.skill_ratings) ? summaryData.skill_ratings : [];
+    const strengths = Array.isArray(summaryData.strengths) ? summaryData.strengths : [];
+    const improvements = Array.isArray(summaryData.areas_for_improvement) ? summaryData.areas_for_improvement : [];
+    const overallFeedback = summaryData.overall_feedback || "No feedback available.";
+
+    let skillsHtml = "";
+    if (skillRatings.length > 0) {
+        skillsHtml = skillRatings.map(s => `
+            <div class="feedback-skill-row">
+                <span class="fs-name">${escapeHTML(s.skill)}</span>
+                <span class="fs-score">${s.score} / 10</span>
+            </div>
+        `).join("");
+    } else {
+        skillsHtml = "<p style='color:var(--text-muted);font-size:13px;'>No skill ratings available.</p>";
+    }
+
+    let strengthsHtml = strengths.length > 0
+        ? `<ul class="feedback-list">${strengths.map(s => `<li>${escapeHTML(s)}</li>`).join("")}</ul>`
+        : "<p style='color:var(--text-muted);font-size:13px;'>None specified.</p>";
+
+    let improvementsHtml = improvements.length > 0
+        ? `<ul class="feedback-list">${improvements.map(i => `<li>${escapeHTML(i)}</li>`).join("")}</ul>`
+        : "<p style='color:var(--text-muted);font-size:13px;'>None specified.</p>";
+
+    const summaryDiv = document.createElement("div");
+    summaryDiv.className = "sim-summary-card";
+    summaryDiv.innerHTML = `
+        <div class="sim-summary-header">
+            <i class="fa-solid fa-clipboard-check"></i> Interview Feedback
+        </div>
+        
+        <div class="feedback-section">
+            <div class="feedback-overall-score">
+                <span class="fos-label">Overall Score</span>
+                <span class="fos-value">${overallScore} <span style="font-size:16px;opacity:0.7">/ 10</span></span>
+            </div>
+        </div>
+
+        <div class="feedback-section">
+            <h4 class="feedback-section-title">Skill Ratings</h4>
+            ${skillsHtml}
+        </div>
+
+        <div class="feedback-section">
+            <h4 class="feedback-section-title">Strengths</h4>
+            ${strengthsHtml}
+        </div>
+
+        <div class="feedback-section">
+            <h4 class="feedback-section-title">Areas for Improvement</h4>
+            ${improvementsHtml}
+        </div>
+
+        <div class="feedback-section">
+            <h4 class="feedback-section-title">Overall Feedback</h4>
+            <p class="sim-summary-text">${escapeHTML(overallFeedback)}</p>
+        </div>
+
+        <button class="btn-primary sim-restart-btn" style="margin-top:20px;" onclick="resetSimulation()">
+            <i class="fa-solid fa-rotate-left"></i> Start New Interview
+        </button>`;
+    
+    interviewChat.appendChild(summaryDiv);
+    interviewChat.scrollTop = interviewChat.scrollHeight;
+}
+
+/* ----------------------------------------------------------
+   Reset simulation state (Start New Interview)
+---------------------------------------------------------- */
+function resetSimulation() {
+    currentSessionId = null;
+    simulationActive = false;
+
+    // Re-enable controls
+    document.getElementById("interviewCandidate").disabled = false;
+    document.getElementById("simInterviewJob").disabled    = false;
+    document.getElementById("interviewMode").disabled      = false;
+    startInterviewBtn.disabled = false;
+    startInterviewBtn.innerHTML = `<i class="fa-solid fa-play"></i> Start Interview`;
+
+    sendResponseBtn.disabled   = true;
+    endInterviewBtn.disabled   = true;
+    endInterviewBtn.style.display = ""; // Reset display
+    candidateResponse.disabled = true;
+    candidateResponse.value    = "";
+    endInterviewBtn.innerHTML  = `<i class="fa-solid fa-flag-checkered"></i> End`;
+
+    interviewChat.innerHTML = `
+        <div class="chat-empty">
+            <i class="fa-solid fa-comments"></i>
+            <p>Start an interview to begin the AI-simulated conversation.</p>
+        </div>`;
+}
+
+/* ==========================================================
+   ATS INTEGRATION (MILESTONE 3)
+========================================================== */
+async function loadAtsCandidates() {
+    const atsList = document.getElementById("atsCandidates");
+    if (!atsList) return;
+
+    try {
+        const response = await fetch(`${API}/interview/ats-status`, { cache: "no-store" });
+
+        // Only parse + render if request succeeded
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: Failed to load ATS status`);
+        }
+
+        const data = await response.json();
+        const candidates = data.candidates || [];
+
+        // Clear container ONLY after we have confirmed data
+        atsList.innerHTML = "";
+
+        if (candidates.length === 0) {
+            atsList.innerHTML = `
+                <div class="ats-row">
+                    <div class="ats-candidate"><strong>No candidates in database</strong></div>
+                    <span class="status-badge" style="background:#f1f5f9;color:#64748b;padding:4px 10px;border-radius:12px;font-size:12px;font-weight:500;">—</span>
+                </div>`;
+            return;
+        }
+
+        candidates.forEach(c => {
+            const row = document.createElement("div");
+            row.className = "ats-row";
+
+            let statusText = c.status || "Not scheduled";
+            let badgeStyle = "background:#f1f5f9;color:#64748b;"; // Not scheduled (default)
+            if (statusText === "Interview in progress") {
+                badgeStyle = "background:#dbeafe;color:#1e40af;";
+            } else if (statusText === "Completed") {
+                badgeStyle = "background:#dcfce7;color:#166534;";
+            }
+
+            const matchInfo = (c.match_percentage !== undefined && c.match_percentage !== null)
+                ? `${c.match_percentage}% match &middot; ${escapeHTML(c.job_title)}`
+                : escapeHTML(c.job_title);
+
+            row.innerHTML = `
+                <div class="ats-candidate">
+                    <strong>${escapeHTML(c.candidate_name)}</strong>
+                    <div class="ats-match-info" style="font-size:13px;color:#64748b;margin-top:2px;">
+                        ${matchInfo}
+                    </div>
+                </div>
+                <span class="status-badge" style="${badgeStyle} padding:4px 10px;border-radius:12px;font-size:12px;font-weight:500;">
+                    ${escapeHTML(statusText)}
+                </span>
+            `;
+            atsList.appendChild(row);
+        });
+
+    } catch (err) {
+        console.error("ATS load failed:", err);
+        // Preserve whatever is already in the container — do NOT replace with blank.
+        // Only add an error notice if the container is empty / still shows the loading spinner.
+        const hasRealContent = atsList.querySelectorAll(".ats-row:not(#ats-loading-row)").length > 0;
+        if (!hasRealContent) {
+            atsList.innerHTML = `
+                <div class="ats-row" style="color:#dc2626;">
+                    <div class="ats-candidate">
+                        <i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>
+                        Unable to load ATS status. Is the backend running?
+                    </div>
+                </div>`;
+        }
+    }
 }
