@@ -9,6 +9,8 @@
 <link rel="stylesheet" href="style.css">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+<!-- Chart.js for Modern Responsive Analytics -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -29,7 +31,12 @@
     <nav>
         <ul class="menu">
 
-            <li class="menu-item active" data-page="resumePage">
+            <li class="menu-item active" data-page="dashboardPage">
+                <i class="fa-solid fa-chart-line"></i>
+                <span>Dashboard</span>
+            </li>
+
+            <li class="menu-item" data-page="resumePage">
                 <i class="fa-solid fa-file-arrow-up"></i>
                 <span>Resume Upload</span>
             </li>
@@ -54,6 +61,11 @@
                 <span>Interview</span>
             </li>
 
+            <li class="menu-item" data-page="voiceScreeningPage">
+                <i class="fa-solid fa-microphone-lines"></i>
+                <span>Voice Screening</span>
+            </li>
+
         </ul>
     </nav>
 
@@ -67,7 +79,7 @@
 <main class="main">
 
     <!-- ==================== RESUME UPLOAD PAGE ==================== -->
-    <div id="resumePage" class="page active-page">
+    <div id="resumePage" class="page">
 
         <div class="page-header">
             <div>
@@ -402,7 +414,7 @@
             <div class="interview-card">
                 <div class="card-header">
                     <h2>AI Interview Simulation</h2>
-                    <p>Live AI-powered chat interview for a selected candidate</p>
+                    <p>Live chat interview conducted by NovaAI for a selected candidate</p>
                 </div>
 
                 <div class="simulation-controls">
@@ -439,7 +451,7 @@
                 <div id="interviewChat" class="interview-chat">
                     <div class="chat-empty">
                         <i class="fa-solid fa-comments"></i>
-                        <p>Start an interview to begin the AI-simulated conversation.</p>
+                        <p>Start an interview to begin the simulated conversation with NovaAI.</p>
                     </div>
                 </div>
 
@@ -467,6 +479,325 @@
                     <div class="ats-candidate"><i class="fa-solid fa-spinner fa-spin" style="margin-right:6px;"></i> Loading ATS records...</div>
                 </div>
             </div>
+        </div>
+
+    </section>
+
+    <!-- ==================== MILESTONE 4: DASHBOARD PAGE ==================== -->
+    <section id="dashboardPage" class="page active-page">
+
+        <!-- Clean Header -->
+        <div class="db-header">
+            <div class="db-header-text">
+                <h1><i class="fa-solid fa-chart-line"></i> Recruitment Dashboard</h1>
+                <p>Overview of candidate processing, matching and evaluation.</p>
+            </div>
+            <div class="db-header-actions">
+                <span class="db-last-updated" id="dbLastUpdated"><i class="fa-regular fa-clock"></i> Live database</span>
+                <button type="button" id="refreshDashboardBtn" class="btn-refresh">
+                    <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                </button>
+            </div>
+        </div>
+
+        <!-- SECTION A: Quick Overview Strip -->
+        <div class="db-quick-strip" id="dbQuickStrip">
+            <div class="db-strip-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading overview...</div>
+        </div>
+
+        <!-- SECTION B: Main Analytics (ATS Matching & Skills Distribution) -->
+        <div class="db-two-col">
+            <!-- ATS Matching Overview -->
+            <div class="db-card">
+                <div class="db-card-header">
+                    <div>
+                        <h3><i class="fa-solid fa-bullseye" style="color:var(--primary);"></i> Candidate Matching &amp; ATS</h3>
+                        <p>Match score tier distribution across all candidates &amp; active jobs</p>
+                    </div>
+                </div>
+                <div class="db-chart-wrapper">
+                    <canvas id="matchingChart"></canvas>
+                </div>
+                <div id="matchingSummaryText" class="db-card-footer-info"></div>
+            </div>
+
+            <!-- Top Candidate Skills -->
+            <div class="db-card">
+                <div class="db-card-header">
+                    <div>
+                        <h3><i class="fa-solid fa-layer-group" style="color:var(--accent-blue);"></i> Top Candidate Skills</h3>
+                        <p>Most frequent skills extracted from uploaded candidate resumes</p>
+                    </div>
+                </div>
+                <div class="db-chart-wrapper">
+                    <canvas id="skillsChart"></canvas>
+                </div>
+                <div id="skillsSummaryText" class="db-card-footer-info"></div>
+            </div>
+        </div>
+
+        <!-- SECTION C: Evaluation Performance (AI Interview & Voice Screening) -->
+        <div class="db-two-col">
+            <!-- AI Interview Performance -->
+            <div class="db-card">
+                <div class="db-card-header">
+                    <div>
+                        <h3><i class="fa-solid fa-comments" style="color:#10b981;"></i> AI Interview Performance</h3>
+                        <p>Score distribution &amp; session status from AI Interview Assistant</p>
+                    </div>
+                </div>
+                <div class="db-chart-wrapper">
+                    <canvas id="interviewScoreChart"></canvas>
+                </div>
+                <div id="interviewSummaryText" class="db-card-footer-info"></div>
+            </div>
+
+            <!-- Voice Screening Insights -->
+            <div class="db-card">
+                <div class="db-card-header">
+                    <div>
+                        <h3><i class="fa-solid fa-microphone-lines" style="color:#8b5cf6;"></i> Voice Screening Insights</h3>
+                        <p>Preliminary communication &amp; professional screening decisions</p>
+                    </div>
+                </div>
+                <div class="db-chart-wrapper">
+                    <canvas id="voiceRecChart"></canvas>
+                </div>
+                <div id="voiceSummaryText" class="db-card-footer-info"></div>
+            </div>
+        </div>
+
+        <!-- SECTION D: Evaluation Method Comparison -->
+        <div class="db-card db-card-full">
+            <div class="db-card-header">
+                <div>
+                    <h3><i class="fa-solid fa-scale-balanced" style="color:var(--primary);"></i> Evaluation Method Comparison</h3>
+                    <p>Two distinct, independent evaluation mechanisms in this platform</p>
+                </div>
+            </div>
+            <div id="dashboardEvalComparison">
+                <div class="db-strip-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading comparison...</div>
+            </div>
+        </div>
+
+        <!-- SECTION E: Candidate Insights & System Activity -->
+        <div class="db-two-col">
+            <!-- Recent Candidates -->
+            <div class="db-card">
+                <div class="db-card-header">
+                    <div>
+                        <h3><i class="fa-solid fa-user-check" style="color:var(--accent-blue);"></i> Recently Processed Candidates</h3>
+                        <p>Candidate profiles parsed and ready in the system</p>
+                    </div>
+                </div>
+                <div class="db-table-wrapper" id="recentCandidatesWrapper">
+                    <div class="db-strip-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading candidates...</div>
+                </div>
+            </div>
+
+            <!-- System Activity Timeline -->
+            <div class="db-card">
+                <div class="db-card-header">
+                    <div>
+                        <h3><i class="fa-solid fa-clock-rotate-left" style="color:var(--text-muted);"></i> Recent Activity Timeline</h3>
+                        <p>Chronological recruitment events from live database records</p>
+                    </div>
+                </div>
+                <div class="db-timeline-wrapper" id="activityTimelineWrapper">
+                    <div class="db-strip-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading activity...</div>
+                </div>
+            </div>
+        </div>
+
+    </section>
+
+    <!-- ==================== MILESTONE 4: VOICE SCREENING PAGE ==================== -->
+    <section id="voiceScreeningPage" class="page milestone-four">
+
+        <!-- Page Header -->
+        <div class="page-header">
+            <div>
+                <h1><i class="fa-solid fa-microphone-lines" style="color:#8b5cf6;"></i> Voice Screening Studio</h1>
+                <p>Real-time speech interaction to assess spoken communication, fluency, and preliminary role fit.</p>
+            </div>
+            <span class="milestone-badge" style="background:#faf5ff;color:#7c3aed;border:1px solid #e9d5ff;">Milestone 4</span>
+        </div>
+
+        <!-- Workflow Stepper Strip -->
+        <div class="vs-stepper-strip">
+            <div class="vs-step-item active">
+                <span class="vs-step-num">1</span>
+                <span class="vs-step-text">Setup Candidate &amp; Job</span>
+            </div>
+            <div class="vs-step-divider"><i class="fa-solid fa-chevron-right"></i></div>
+            <div class="vs-step-item">
+                <span class="vs-step-num">2</span>
+                <span class="vs-step-text">Voice Question &amp; Speech</span>
+            </div>
+            <div class="vs-step-divider"><i class="fa-solid fa-chevron-right"></i></div>
+            <div class="vs-step-item">
+                <span class="vs-step-num">3</span>
+                <span class="vs-step-text">Live Transcription</span>
+            </div>
+            <div class="vs-step-divider"><i class="fa-solid fa-chevron-right"></i></div>
+            <div class="vs-step-item">
+                <span class="vs-step-num">4</span>
+                <span class="vs-step-text">Instant Assessment</span>
+            </div>
+        </div>
+
+        <!-- Main Voice Screening Studio Grid -->
+        <div class="vs-grid">
+
+            <!-- LEFT COLUMN: Control Deck & Rubric -->
+            <div class="vs-left-col">
+                <!-- Control Deck Card -->
+                <div class="interview-card vs-card">
+                    <div class="card-header">
+                        <h2><i class="fa-solid fa-sliders" style="color:var(--primary);margin-right:6px;"></i> Screening Setup</h2>
+                        <p>Configure candidate &amp; position before starting</p>
+                    </div>
+
+                    <div class="simulation-controls">
+                        <div class="form-group">
+                            <label for="vsCandidate"><i class="fa-solid fa-user" style="color:var(--text-muted);margin-right:4px;"></i> Candidate</label>
+                            <select id="vsCandidate">
+                                <option value="">Select candidate</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="vsJob"><i class="fa-solid fa-briefcase" style="color:var(--text-muted);margin-right:4px;"></i> Job Position</label>
+                            <select id="vsJob">
+                                <option value="">Select job</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Audio Equalizer Visualizer -->
+                    <div class="vs-visualizer-box" id="vsVisualizerBox">
+                        <div class="vs-wave-bars">
+                            <span class="vs-wave-bar"></span>
+                            <span class="vs-wave-bar"></span>
+                            <span class="vs-wave-bar"></span>
+                            <span class="vs-wave-bar"></span>
+                            <span class="vs-wave-bar"></span>
+                        </div>
+                        <span class="vs-wave-status-text">Audio Engine Ready</span>
+                    </div>
+
+                    <!-- Status bar & AI Audio Toggle -->
+                    <div class="vs-status-bar">
+                        <div class="vs-status-indicator">
+                            <span class="vs-status-dot" id="vsStatusDot"></span>
+                            <span id="vsStatusText" class="vs-status-text">Ready</span>
+                        </div>
+                        <label class="vs-tts-toggle" title="Enable NovaAI voice synthesis output">
+                            <input type="checkbox" id="vsTtsEnabled" checked>
+                            <i class="fa-solid fa-volume-high"></i> NovaAI Voice
+                        </label>
+                    </div>
+
+                    <!-- Control buttons -->
+                    <div class="vs-btn-row">
+                        <button type="button" id="vsStartBtn" class="btn-primary">
+                            <i class="fa-solid fa-microphone"></i> Start Screening
+                        </button>
+                        <button type="button" id="vsStopBtn" class="btn-secondary" disabled>
+                            <i class="fa-solid fa-stop"></i> Stop
+                        </button>
+                        <button type="button" id="vsSaveBtn" class="btn-secondary" disabled>
+                            <i class="fa-solid fa-floppy-disk"></i> Save &amp; Evaluate
+                        </button>
+                    </div>
+
+                    <!-- Browser compatibility warning -->
+                    <div id="vsBrowserWarning" class="vs-browser-warning" style="display:none;">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        Voice recognition requires Chrome or Edge. Please switch browsers for this feature.
+                    </div>
+
+                    <!-- Mic permission note -->
+                    <p class="vs-mic-note">
+                        <i class="fa-solid fa-circle-info"></i>
+                        Uses browser Speech-to-Text. No audio files are recorded or stored.
+                    </p>
+                </div>
+
+                <!-- Screening Rubric / Focus Card -->
+                <div class="vs-rubric-card">
+                    <h4><i class="fa-solid fa-bullseye" style="color:var(--accent-blue);"></i> Evaluation Focus</h4>
+                    <ul class="vs-rubric-list">
+                        <li>
+                            <i class="fa-solid fa-comments"></i>
+                            <div>
+                                <strong>Communication &amp; Personality</strong>
+                                <span>Fluency, articulation, clarity, and spoken confidence</span>
+                            </div>
+                        </li>
+                        <li>
+                            <i class="fa-solid fa-crown"></i>
+                            <div>
+                                <strong>Leadership &amp; Collaboration</strong>
+                                <span>Taking initiative, handling conflict, and teamwork attitude</span>
+                            </div>
+                        </li>
+                        <li>
+                            <i class="fa-solid fa-brain"></i>
+                            <div>
+                                <strong>Preliminary Role Fit</strong>
+                                <span>Conceptual awareness and adaptability for deeper rounds</span>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: Active Prompter & Live Transcript -->
+            <div class="vs-right-col">
+                <div class="interview-card vs-card vs-live-arena">
+                    <div class="card-header">
+                        <h2><i class="fa-solid fa-podcast" style="color:#8b5cf6;margin-right:6px;"></i> Interactive Voice Arena</h2>
+                        <p>Live speech prompts and spoken candidate responses with NovaAI</p>
+                    </div>
+
+                    <!-- Current AI Question Prompter -->
+                    <div class="vs-question-box" id="vsQuestionBox">
+                        <div class="vs-question-header">
+                            <div class="vs-question-label">
+                                <i class="fa-solid fa-robot"></i> Active NovaAI Question
+                            </div>
+                            <span class="vs-live-badge"><i class="fa-solid fa-signal"></i> Spoken Stream</span>
+                        </div>
+                        <p id="vsCurrentQuestion" class="vs-question-text">Select a candidate and job position to begin voice screening with NovaAI.</p>
+                    </div>
+
+                    <!-- Conversation Transcript Stream -->
+                    <div class="vs-transcript-box">
+                        <div class="vs-transcript-label">
+                            <div><i class="fa-solid fa-microphone-lines"></i> Conversation Transcript</div>
+                            <span class="vs-transcript-count">Live speech-to-text</span>
+                        </div>
+                        <div id="vsTranscriptContent" class="vs-transcript-content">
+                            <div class="vs-placeholder">
+                                <i class="fa-solid fa-headphones" style="font-size:32px;color:var(--text-muted);margin-bottom:8px;"></i>
+                                <p>Click <strong>Start Screening</strong> to speak with NovaAI.</p>
+                                <small>Your spoken responses and NovaAI questions will appear here in real time.</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ASSESSMENT PANEL (visible after screening is saved) -->
+        <div id="vsAssessmentPanel" class="panel-card m4-panel" style="display:none;margin-top:24px;">
+            <div class="panel-card-header">
+                <i class="fa-solid fa-clipboard-check" style="color:#10b981;"></i>
+                <h3>Voice Screening Assessment Report</h3>
+                <span class="panel-note">AI-generated evaluation · Final decision rests with recruiter</span>
+            </div>
+            <div id="vsAssessmentContent"></div>
         </div>
 
     </section>

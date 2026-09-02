@@ -5,10 +5,24 @@ import time
 load_dotenv(override=True)
 
 
-
 client = Groq(
     api_key=os.getenv("GROQ_API_KEY")
 )
+
+
+def _classify_groq_error(err: str) -> str:
+    """
+    Returns a user-friendly message for known Groq/LLM failure modes.
+    Used to produce clean 503-ready error messages without exposing raw internals.
+    """
+    lower = err.lower()
+    if "429" in err or "rate_limit" in lower or "resource_exhausted" in lower:
+        return "AI service rate limit reached. Please wait a moment and try again."
+    if "401" in err or "403" in err or "invalid api key" in lower or "authentication" in lower or "unauthorized" in lower:
+        return "AI service authentication error. Please check the API key configuration."
+    if "503" in err or "502" in err or "connection" in lower or "timeout" in lower or "timed out" in lower:
+        return "AI service is temporarily unavailable. Please try again in a moment."
+    return "AI service temporarily unavailable. Please try again."
 
 
 def generate_interview_questions(
@@ -33,20 +47,23 @@ Requirements:
 - Return ONLY the questions.
 """
 
-    response = client.chat.completions.create(
-        model="openai/gpt-oss-120b",
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        temperature=0
-    )
     try:
-        return response.choices[0].message.content
-    except AttributeError:
-        return response.text
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0
+        )
+        try:
+            return response.choices[0].message.content
+        except AttributeError:
+            return response.text
+    except Exception as e:
+        raise Exception(_classify_groq_error(str(e)))
 
 
 def generate_job_interview_questions(
@@ -76,22 +93,24 @@ Requirements:
 - Return ONLY the 5 questions, one per line. Do not number them or use bullet points, just the question text.
 """
 
-    response = client.chat.completions.create(
-        model="openai/gpt-oss-120b",
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        temperature=0.7
-    )
-
     try:
-        return response.choices[0].message.content
-    except AttributeError:
-        # Fallback if the underlying object structure is different
-        return response.text
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0.7
+        )
+
+        try:
+            return response.choices[0].message.content
+        except AttributeError:
+            return response.text
+    except Exception as e:
+        raise Exception(_classify_groq_error(str(e)))
 
 
 def regenerate_job_interview_question(
@@ -124,21 +143,24 @@ Requirements:
 - Return ONLY the ONE replacement question text. Do not number it or use bullet points. Do not include introductory or concluding remarks.
 """
 
-    response = client.chat.completions.create(
-        model="openai/gpt-oss-120b",
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        temperature=0.8
-    )
-
     try:
-        return response.choices[0].message.content
-    except AttributeError:
-        return response.text
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0.8
+        )
+
+        try:
+            return response.choices[0].message.content
+        except AttributeError:
+            return response.text
+    except Exception as e:
+        raise Exception(_classify_groq_error(str(e)))
 
 
 def start_interview_simulation(
@@ -153,7 +175,7 @@ def start_interview_simulation(
     skills_str = ", ".join([f"{s.get('name', '')} ({s.get('level', 'Basic')})" for s in job_skills]) if job_skills else "None specified"
     
     prompt = f"""
-You are an expert AI technical recruiter conducting a live chat interview.
+You are NovaAI, an expert AI interviewer and recruitment copilot conducting a live interview simulation.
 
 Context:
 Job Position: {job_title}
@@ -168,27 +190,30 @@ Experience: {candidate_experience}
 Interview Mode: {interview_mode}
 
 Instructions:
-You are to start the interview. Greet the candidate by name, briefly introduce yourself as the AI recruiter for this role, and ask the FIRST question.
+You are to start the interview. Greet the candidate warmly by name, briefly introduce yourself as NovaAI, their AI Interview Copilot for this role, and ask the FIRST question.
 The question should align with the {interview_mode} interview mode.
 Do not provide multiple questions. Ask exactly one question and wait for the candidate's response.
-Maintain a professional and conversational tone.
+Maintain an engaging, professional, and conversational tone.
 """
 
-    response = client.chat.completions.create(
-        model="openai/gpt-oss-120b",
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        temperature=0.7
-    )
-
     try:
-        return response.choices[0].message.content
-    except AttributeError:
-        return response.text
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0.7
+        )
+
+        try:
+            return response.choices[0].message.content
+        except AttributeError:
+            return response.text
+    except Exception as e:
+        raise Exception(_classify_groq_error(str(e)))
 
 
 def generate_interview_response(conversation_history: list):
@@ -200,7 +225,7 @@ def generate_interview_response(conversation_history: list):
     # Prepend a system prompt to remind the AI of its role
     messages.append({
         "role": "system",
-        "content": "You are an expert AI technical recruiter conducting a live chat interview. Ask ONE relevant follow-up question based on the candidate's response, or move on to the next topic if the answer was sufficient. Keep your responses concise and conversational."
+        "content": "You are NovaAI, an expert AI interviewer and recruitment copilot conducting a live chat interview. Ask ONE relevant follow-up question based on the candidate's response, or move on to the next topic if the answer was sufficient. Keep your responses concise and conversational."
     })
     
     for msg in conversation_history:
@@ -210,16 +235,19 @@ def generate_interview_response(conversation_history: list):
             "content": msg.get("content", "")
         })
 
-    response = client.chat.completions.create(
-        model="openai/gpt-oss-120b",
-        messages=messages,
-        temperature=0.7
-    )
-
     try:
-        return response.choices[0].message.content
-    except AttributeError:
-        return response.text
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=messages,
+            temperature=0.7
+        )
+
+        try:
+            return response.choices[0].message.content
+        except AttributeError:
+            return response.text
+    except Exception as e:
+        raise Exception(_classify_groq_error(str(e)))
 
 
 def generate_interview_summary(conversation_history: list, job_title: str = "", job_skills: list = None):
@@ -267,17 +295,20 @@ Do NOT include markdown block backticks (```json). Just return the JSON object d
         "content": system_prompt
     })
 
-    # Note: Groq supports response_format={"type": "json_object"} on some models.
-    # To be safe across models (like openai/gpt-oss-120b or groq equivalents), 
-    # we explicitly ask for JSON in the prompt and use the parameter if available.
-    response = client.chat.completions.create(
-        model="openai/gpt-oss-120b",
-        messages=messages,
-        temperature=0.3,
-        response_format={"type": "json_object"}
-    )
-
     try:
-        return response.choices[0].message.content
-    except AttributeError:
-        return response.text
+        # Note: Groq supports response_format={"type": "json_object"} on some models.
+        # To be safe across models (like openai/gpt-oss-120b or groq equivalents), 
+        # we explicitly ask for JSON in the prompt and use the parameter if available.
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=messages,
+            temperature=0.3,
+            response_format={"type": "json_object"}
+        )
+
+        try:
+            return response.choices[0].message.content
+        except AttributeError:
+            return response.text
+    except Exception as e:
+        raise Exception(_classify_groq_error(str(e)))

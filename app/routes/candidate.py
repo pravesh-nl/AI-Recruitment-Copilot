@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 from app.database import SessionLocal
 from app.models.candidate import Candidate
 from sqlalchemy import func
@@ -109,3 +110,46 @@ def get_stats():
         "profiles_created": profiles_created,
         "parsing_accuracy": avg_accuracy
     }
+
+
+# ==============================================================
+# Milestone 4: PATCH /candidates/{candidate_id}/stage
+# Allows recruiter to manually update a candidate's pipeline stage.
+# ==============================================================
+
+VALID_STAGES = ["applied", "screened", "interviewed", "offered", "hired"]
+
+
+class StageUpdate(BaseModel):
+    stage: str
+
+
+@router.patch("/candidates/{candidate_id}/stage")
+def update_candidate_stage(candidate_id: int, body: StageUpdate):
+    """
+    Update the recruitment pipeline stage for a candidate.
+    The recruiter is responsible for all stage decisions.
+    AI recommendations do NOT automatically trigger this endpoint.
+    """
+    if body.stage not in VALID_STAGES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid stage '{body.stage}'. Must be one of: {VALID_STAGES}"
+        )
+
+    db = SessionLocal()
+    try:
+        candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+        if not candidate:
+            raise HTTPException(status_code=404, detail="Candidate not found")
+
+        candidate.recruitment_stage = body.stage
+        db.commit()
+
+        return {
+            "message": f"Stage updated to '{body.stage}'",
+            "candidate_id": candidate_id,
+            "stage": body.stage
+        }
+    finally:
+        db.close()

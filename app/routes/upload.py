@@ -95,6 +95,7 @@ async def upload_resume(files: List[UploadFile] = File(...)):
             if existing:
 
                 existing.name = candidate_data.get("name", "")
+                existing.name_source = candidate_data.get("name_source", None)
                 existing.phone = candidate_data.get("phone", "")
                 existing.education = json.dumps(candidate_data.get("education", []))
                 existing.skills = json.dumps(candidate_data.get("skills", []))
@@ -102,8 +103,6 @@ async def upload_resume(files: List[UploadFile] = File(...)):
                 existing.projects = json.dumps(candidate_data.get("projects", []))
                 existing.experience = json.dumps(candidate_data.get("experience", []))
                 existing.resume_path = file_path
-
-                # ADD THIS LINE
                 existing.uploaded_at = datetime.utcnow()
 
                 db.commit()
@@ -115,6 +114,7 @@ async def upload_resume(files: List[UploadFile] = File(...)):
 
                 candidate = Candidate(
                     name=candidate_data.get("name", ""),
+                    name_source=candidate_data.get("name_source", None),
                     email=email,
                     phone=candidate_data.get("phone", ""),
                     education=json.dumps(candidate_data.get("education", [])),

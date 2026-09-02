@@ -130,9 +130,13 @@ menuItems.forEach(item => {
         // Persist current page in URL hash so reload returns here
         history.replaceState(null, "", `#${pageId}`);
 
-        // Lazy-load matching page jobs when navigating there
+        // Lazy-load page data when navigating
         if (pageId === "matchingPage") {
             loadJobsIntoDropdown();
+        } else if (pageId === "dashboardPage") {
+            if (typeof loadDashboard === "function") loadDashboard();
+        } else if (pageId === "voiceScreeningPage") {
+            if (typeof loadVsDropdowns === "function") loadVsDropdowns();
         }
     });
 });
@@ -407,7 +411,7 @@ function showCandidate(candidate) {
             <i class="fa-solid fa-user" style="margin-right:10px;"></i>Candidate Profile
         </h2>
         <div class="profile-grid">
-            <p><strong>Name:</strong> ${candidate.name || "—"}</p>
+            <p><strong>Name:</strong> ${candidate.name || "—"}${candidate.name_source ? `<span style="font-size:11px;color:var(--text-muted);margin-left:8px;font-weight:400;">Name Source: ${escapeHTML(candidate.name_source)}</span>` : ""}</p>
             <p><strong>Email:</strong> ${candidate.email || "—"}</p>
             <p><strong>Phone:</strong> ${candidate.phone || "—"}</p>
             <p><strong>Education:</strong> ${safeParseJSON(candidate.education, []).join(", ") || "—"}</p>
@@ -415,7 +419,7 @@ function showCandidate(candidate) {
             <p><strong>Skills:</strong> ${safeParseJSON(candidate.skills, []).join(", ") || "—"}</p>
             <p><strong>Projects:</strong> ${safeParseJSON(candidate.projects, []).join(", ") || "—"}</p>
             <p><strong>Certifications:</strong> ${safeParseJSON(candidate.certifications, []).join(", ") || "—"}</p>
-        </div>`;
+        </div>`;
 }
 
 closeModal.addEventListener("click", () => {
@@ -1226,6 +1230,14 @@ window.addEventListener("DOMContentLoaded", async () => {
 
         // Lazy-load if needed
         if (hash === "matchingPage") loadJobsIntoDropdown();
+        if (hash === "dashboardPage") {
+            loadDashboardStats();
+            loadPipelineData();
+            loadDashboardInterviewSummary();
+        }
+        if (hash === "voiceScreeningPage") {
+            loadVsDropdowns();
+        }
     }
 });
 
@@ -1342,12 +1354,21 @@ startInterviewBtn.addEventListener("click", async () => {
 
     } catch (error) {
         console.error("Start Interview Error:", error);
+        const isUnavailable = error.message && (
+            error.message.toLowerCase().includes("unavailable") ||
+            error.message.toLowerCase().includes("rate limit") ||
+            error.message.toLowerCase().includes("authentication") ||
+            error.message.toLowerCase().includes("try again")
+        );
+        const displayMsg = isUnavailable
+            ? error.message
+            : (error.message || "Failed to start interview. Is the backend running?");
         interviewChat.innerHTML = `
             <div class="chat-empty">
                 <i class="fa-solid fa-triangle-exclamation" style="color:#dc2626;font-size:28px;"></i>
-                <p>${escapeHTML(error.message) || "Failed to start interview. Is the backend running?"}</p>
+                <p>${escapeHTML(displayMsg)}</p>
             </div>`;
-        showToast(error.message || "Failed to start interview.", true);
+        showToast(displayMsg, true);
         startInterviewBtn.disabled = false;
         startInterviewBtn.innerHTML = `<i class="fa-solid fa-play"></i> Start Interview`;
     }
@@ -1396,7 +1417,15 @@ async function sendSimMessage() {
         console.error("Send Message Error:", error);
         const typingEl = document.getElementById(typingId);
         if (typingEl) typingEl.remove();
-        appendChatMessage("ai", "⚠️ Something went wrong. Please try again.");
+        const isUnavailable = error.message && (
+            error.message.toLowerCase().includes("unavailable") ||
+            error.message.toLowerCase().includes("rate limit") ||
+            error.message.toLowerCase().includes("try again")
+        );
+        const errMsg = isUnavailable
+            ? error.message
+            : "⚠️ AI service temporarily unavailable. Please try again.";
+        appendChatMessage("ai", errMsg);
         showToast(error.message || "Failed to get AI response.", true);
     } finally {
         sendResponseBtn.disabled   = false;
@@ -1439,7 +1468,15 @@ endInterviewBtn.addEventListener("click", async () => {
 
     } catch (error) {
         console.error("End Interview Error:", error);
-        showToast(error.message || "Failed to end the interview.", true);
+        const isUnavailable = error.message && (
+            error.message.toLowerCase().includes("unavailable") ||
+            error.message.toLowerCase().includes("rate limit") ||
+            error.message.toLowerCase().includes("try again")
+        );
+        const errMsg = isUnavailable
+            ? error.message
+            : (error.message || "Failed to end the interview.");
+        showToast(errMsg, true);
         endInterviewBtn.disabled = false;
         endInterviewBtn.innerHTML = `<i class="fa-solid fa-flag-checkered"></i> End`;
     }
@@ -1453,7 +1490,7 @@ function appendChatMessage(role, text) {
     div.className = `chat-message ${role}`;
 
     const prefix = role === "ai"
-        ? `<span class="chat-role-label"><i class="fa-solid fa-robot"></i> AI Interviewer</span>`
+        ? `<span class="chat-role-label"><i class="fa-solid fa-robot"></i> NovaAI</span>`
         : `<span class="chat-role-label"><i class="fa-solid fa-user"></i> You</span>`;
 
     div.innerHTML = `${prefix}<p>${escapeHTML(text)}</p>`;
@@ -1470,7 +1507,7 @@ function appendAiTyping() {
     div.className = "chat-message ai chat-typing";
     div.id = id;
     div.innerHTML = `
-        <span class="chat-role-label"><i class="fa-solid fa-robot"></i> AI Interviewer</span>
+        <span class="chat-role-label"><i class="fa-solid fa-robot"></i> NovaAI</span>
         <p class="typing-dots"><span></span><span></span><span></span></p>`;
     interviewChat.appendChild(div);
     interviewChat.scrollTop = interviewChat.scrollHeight;
@@ -1668,3 +1705,1232 @@ async function loadAtsCandidates() {
         }
     }
 }
+
+
+/* ==========================================================
+   MILESTONE 4 — DASHBOARD CONTROLLER (REAL PROJECT DATA ONLY)
+   GET /dashboard/analytics — 100% DB-only, 0 external AI calls
+========================================================== */
+
+let dbCharts = {
+    matching: null,
+    skills: null,
+    interview: null,
+    voice: null
+};
+
+async function loadDashboard() {
+    const strip = document.getElementById("dbQuickStrip");
+    if (!strip) return;
+
+    if (!strip.children.length || strip.querySelector(".db-strip-loading")) {
+        strip.innerHTML = `<div class="db-strip-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading live analytics...</div>`;
+    }
+
+    const refreshBtn = document.getElementById("refreshDashboardBtn");
+    if (refreshBtn) {
+        const icon = refreshBtn.querySelector("i");
+        if (icon) icon.classList.add("fa-spin");
+    }
+
+    try {
+        const res = await fetch(`${API}/dashboard/analytics`, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        // 1. Render Quick Stats Strip
+        renderQuickStrip(data.overview || {});
+
+        // 2. Render Charts (ATS Matching & Skills)
+        renderMatchingChart(data.matching_analytics || {}, data.overview?.total_jobs || 0);
+        renderSkillsChart(data.skills_distribution || [], data.overview?.total_candidates || 0);
+
+        // 3. Render Evaluation Charts (AI Interview & Voice Screening)
+        renderInterviewChart(data.interview_analytics || {}, data.overview?.avg_interview_score);
+        renderVoiceChart(data.voice_screening_analytics || {}, data.overview?.avg_voice_score);
+
+        // 4. Render Evaluation Method Comparison
+        renderEvaluationComparison(data.evaluation_comparison || {});
+
+        // 5. Render Recent Candidates Table
+        renderRecentCandidates(data.recent_candidates || []);
+
+        // 6. Render Recent System Activity
+        renderActivityTimeline(data.recent_activity || []);
+
+        // 7. Update Timestamp
+        const lastUpdated = document.getElementById("dbLastUpdated");
+        if (lastUpdated) {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            lastUpdated.innerHTML = `<i class="fa-regular fa-clock"></i> Updated at ${timeStr}`;
+        }
+
+    } catch (err) {
+        console.error("Dashboard loading error:", err);
+        strip.innerHTML = `<div class="db-strip-loading" style="color:var(--red)"><i class="fa-solid fa-triangle-exclamation"></i> Unable to load analytics. Is the backend running?</div>`;
+    } finally {
+        if (refreshBtn) {
+            const icon = refreshBtn.querySelector("i");
+            if (icon) icon.classList.remove("fa-spin");
+        }
+    }
+}
+
+function renderQuickStrip(ov) {
+    const strip = document.getElementById("dbQuickStrip");
+    if (!strip) return;
+
+    const avgIvScore = ov.avg_interview_score !== null && ov.avg_interview_score !== undefined
+        ? `${ov.avg_interview_score}/10`
+        : "N/A";
+
+    const avgVsScore = ov.avg_voice_score !== null && ov.avg_voice_score !== undefined
+        ? `${ov.avg_voice_score}/10`
+        : "N/A";
+
+    strip.innerHTML = `
+        <div class="db-stat-item">
+            <div class="db-stat-icon icon-blue">
+                <i class="fa-solid fa-users"></i>
+            </div>
+            <div class="db-stat-content">
+                <span class="db-stat-val">${ov.total_candidates ?? 0}</span>
+                <span class="db-stat-lbl">Candidates</span>
+                <span class="db-stat-sub">Parsed profiles</span>
+            </div>
+        </div>
+
+        <div class="db-stat-item">
+            <div class="db-stat-icon icon-orange">
+                <i class="fa-solid fa-briefcase"></i>
+            </div>
+            <div class="db-stat-content">
+                <span class="db-stat-val">${ov.total_jobs ?? 0}</span>
+                <span class="db-stat-lbl">Job Roles</span>
+                <span class="db-stat-sub">Active postings</span>
+            </div>
+        </div>
+
+        <div class="db-stat-item">
+            <div class="db-stat-icon icon-green">
+                <i class="fa-solid fa-comments"></i>
+            </div>
+            <div class="db-stat-content">
+                <span class="db-stat-val">${ov.completed_interviews ?? 0}</span>
+                <span class="db-stat-lbl">AI Interviews</span>
+                <span class="db-stat-sub">${ov.total_interviews ?? 0} total sessions</span>
+            </div>
+        </div>
+
+        <div class="db-stat-item">
+            <div class="db-stat-icon icon-purple">
+                <i class="fa-solid fa-microphone-lines"></i>
+            </div>
+            <div class="db-stat-content">
+                <span class="db-stat-val">${ov.completed_voice_screenings ?? 0}</span>
+                <span class="db-stat-lbl">Voice Screenings</span>
+                <span class="db-stat-sub">${ov.total_voice_screenings ?? 0} total sessions</span>
+            </div>
+        </div>
+
+        <div class="db-stat-item">
+            <div class="db-stat-icon icon-amber">
+                <i class="fa-solid fa-star"></i>
+            </div>
+            <div class="db-stat-content">
+                <span class="db-stat-val">${avgIvScore}</span>
+                <span class="db-stat-lbl">Avg Interview</span>
+                <span class="db-stat-sub">Detailed chat score</span>
+            </div>
+        </div>
+
+        <div class="db-stat-item">
+            <div class="db-stat-icon icon-teal">
+                <i class="fa-solid fa-waveform-lines"></i>
+            </div>
+            <div class="db-stat-content">
+                <span class="db-stat-val">${avgVsScore}</span>
+                <span class="db-stat-lbl">Avg Voice Score</span>
+                <span class="db-stat-sub">Preliminary screen</span>
+            </div>
+        </div>
+    `;
+}
+
+function renderMatchingChart(matching, totalJobs) {
+    const canvas = document.getElementById("matchingChart");
+    const footer = document.getElementById("matchingSummaryText");
+    if (!canvas) return;
+
+    const tiers = matching.tiers || {};
+    const labels = Object.keys(tiers);
+    const data = Object.values(tiers);
+    const hasData = data.some(v => v > 0);
+
+    if (footer) {
+        footer.innerHTML = `<span><strong>${matching.total_evaluations || 0}</strong> match evaluations</span><span>across <strong>${totalJobs}</strong> active job roles</span>`;
+    }
+
+    if (dbCharts.matching) {
+        dbCharts.matching.destroy();
+        dbCharts.matching = null;
+    }
+
+    if (typeof Chart === "undefined" || !hasData) {
+        canvas.parentElement.innerHTML = `<div class="db-strip-loading"><i class="fa-solid fa-circle-info"></i> No candidate matching evaluations yet. Create jobs and upload candidates to populate.</div>`;
+        return;
+    }
+
+    const ctx = canvas.getContext("2d");
+    dbCharts.matching = new Chart(ctx, {
+        type: "doughnut",
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: [
+                    "#10b981", // Excellent (green)
+                    "#3b82f6", // Strong (blue)
+                    "#f59e0b", // Moderate (amber)
+                    "#cbd5e1"  // Low (slate)
+                ],
+                borderWidth: 2,
+                borderColor: "#ffffff"
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: "right",
+                    labels: { boxWidth: 12, font: { size: 11, family: "Inter" }, color: "#475569" }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: (item) => ` ${item.label}: ${item.raw} candidates`
+                    }
+                }
+            },
+            cutout: "68%"
+        }
+    });
+}
+
+function renderSkillsChart(skillsList, totalCandidates) {
+    const canvas = document.getElementById("skillsChart");
+    const footer = document.getElementById("skillsSummaryText");
+    if (!canvas) return;
+
+    if (footer) {
+        footer.innerHTML = `<span>Real skills extracted from <strong>${totalCandidates}</strong> resumes</span><span>Top ${skillsList.length} skills shown</span>`;
+    }
+
+    if (dbCharts.skills) {
+        dbCharts.skills.destroy();
+        dbCharts.skills = null;
+    }
+
+    if (typeof Chart === "undefined" || !skillsList.length) {
+        canvas.parentElement.innerHTML = `<div class="db-strip-loading"><i class="fa-solid fa-circle-info"></i> No skills extracted yet. Upload candidate resumes to view skill distribution.</div>`;
+        return;
+    }
+
+    const labels = skillsList.map(s => s.skill);
+    const data = skillsList.map(s => s.count);
+
+    const ctx = canvas.getContext("2d");
+    dbCharts.skills = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Candidates with Skill",
+                data: data,
+                backgroundColor: "#ea580c",
+                borderRadius: 4,
+                maxBarThickness: 18
+            }]
+        },
+        options: {
+            indexAxis: "y",
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (item) => ` ${item.raw} candidate${item.raw !== 1 ? 's' : ''}`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: { precision: 0, font: { size: 10, family: "Inter" }, color: "#64748b" },
+                    grid: { color: "#f1f5f9" }
+                },
+                y: {
+                    ticks: { font: { size: 11, family: "Inter", weight: 500 }, color: "#334155" },
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+}
+
+function renderInterviewChart(interviewData, avgScore) {
+    const canvas = document.getElementById("interviewScoreChart");
+    const footer = document.getElementById("interviewSummaryText");
+    if (!canvas) return;
+
+    const buckets = interviewData.score_buckets || {};
+    const labels = ["0–2", "2.1–4", "4.1–6", "6.1–8", "8.1–10"];
+    const data = [
+        buckets["0-2"] || 0,
+        buckets["2-4"] || 0,
+        buckets["4-6"] || 0,
+        buckets["6-8"] || 0,
+        buckets["8-10"] || 0
+    ];
+    const totalDone = interviewData.status?.completed || 0;
+
+    if (footer) {
+        footer.innerHTML = `<span><strong>${totalDone}</strong> completed sessions</span><span>Avg score: <strong>${avgScore !== null && avgScore !== undefined ? avgScore + '/10' : 'N/A'}</strong></span>`;
+    }
+
+    if (dbCharts.interview) {
+        dbCharts.interview.destroy();
+        dbCharts.interview = null;
+    }
+
+    if (typeof Chart === "undefined" || !data.some(v => v > 0)) {
+        canvas.parentElement.innerHTML = `<div class="db-strip-loading"><i class="fa-solid fa-circle-info"></i> No completed AI interview evaluations yet. Conduct an interview to populate.</div>`;
+        return;
+    }
+
+    const ctx = canvas.getContext("2d");
+    dbCharts.interview = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Interviews in Score Range",
+                data: data,
+                backgroundColor: "#059669",
+                borderRadius: 4,
+                maxBarThickness: 28
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: (items) => `Score Range: ${items[0].label} / 10`,
+                        label: (item) => ` ${item.raw} session${item.raw !== 1 ? 's' : ''}`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { font: { size: 11, family: "Inter" }, color: "#64748b" },
+                    grid: { display: false }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: { precision: 0, font: { size: 10, family: "Inter" }, color: "#64748b" },
+                    grid: { color: "#f1f5f9" }
+                }
+            }
+        }
+    });
+}
+
+function renderVoiceChart(voiceData, avgScore) {
+    const canvas = document.getElementById("voiceRecChart");
+    const footer = document.getElementById("voiceSummaryText");
+    if (!canvas) return;
+
+    // Use new decisions field (Screened / Not Screened)
+    const decisions = voiceData.decisions || {};
+    const screened    = decisions["Screened"]    || 0;
+    const notScreened = decisions["Not Screened"] || 0;
+    const labels = ["Screened", "Not Screened"];
+    const data   = [screened, notScreened];
+    const hasData = data.some(v => v > 0);
+
+    const totalCompleted = voiceData.status?.completed || 0;
+    const commScore = voiceData.scores?.communication;
+    const screeningRate = voiceData.screening_rate;
+
+    if (footer) {
+        const rateStr  = screeningRate !== null && screeningRate !== undefined ? `${screeningRate}%` : 'N/A';
+        const commStr  = commScore !== null && commScore !== undefined ? `${commScore}/10` : 'N/A';
+        footer.innerHTML =
+            `<span><strong>${totalCompleted}</strong> completed</span>` +
+            `<span>Screened: <strong>${screened}</strong> &nbsp;|&nbsp; Not Screened: <strong>${notScreened}</strong></span>` +
+            `<span>Rate: <strong>${rateStr}</strong></span>` +
+            `<span>Avg Comm: <strong>${commStr}</strong></span>`;
+    }
+
+    if (dbCharts.voice) {
+        dbCharts.voice.destroy();
+        dbCharts.voice = null;
+    }
+
+    if (typeof Chart === "undefined" || !hasData) {
+        canvas.parentElement.innerHTML = `<div class="db-strip-loading"><i class="fa-solid fa-circle-info"></i> No completed voice screenings yet. Conduct a preliminary voice screening to view results.</div>`;
+        return;
+    }
+
+    const ctx = canvas.getContext("2d");
+    dbCharts.voice = new Chart(ctx, {
+        type: "doughnut",
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: [
+                    "#10b981", // Screened (green)
+                    "#ef4444"  // Not Screened (red)
+                ],
+                borderWidth: 2,
+                borderColor: "#ffffff"
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: "right",
+                    labels: { boxWidth: 12, font: { size: 11, family: "Inter" }, color: "#475569" }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: (item) => ` ${item.label}: ${item.raw} screening${item.raw !== 1 ? 's' : ''}`
+                    }
+                }
+            },
+            cutout: "68%"
+        }
+    });
+}
+
+function renderEvaluationComparison(comp) {
+    const el = document.getElementById("dashboardEvalComparison");
+    if (!el) return;
+
+    const iv = comp.ai_interview || { title: "AI Interview Assistant", total_sessions: 0, completed_sessions: 0, avg_score: "N/A" };
+    const vs = comp.voice_screening || { title: "Voice Screening", total_sessions: 0, completed_sessions: 0, avg_score: "N/A" };
+
+    el.innerHTML = `
+        <div class="eval-comparison-grid">
+            <!-- Method A: AI Interview Assistant -->
+            <div class="eval-method-box">
+                <div class="eval-method-header">
+                    <div class="eval-method-icon eval-icon-interview">
+                        <i class="fa-solid fa-comments"></i>
+                    </div>
+                    <div class="eval-method-titles">
+                        <h4>${iv.title}</h4>
+                        <span>Deep Technical &amp; Behavioral Chat Simulation</span>
+                    </div>
+                </div>
+
+                <div class="eval-method-stats">
+                    <div>
+                        <div class="eval-stat-num">${iv.total_sessions}</div>
+                        <div class="eval-stat-lbl">Sessions</div>
+                    </div>
+                    <div>
+                        <div class="eval-stat-num" style="color:#059669">${iv.completed_sessions}</div>
+                        <div class="eval-stat-lbl">Completed</div>
+                    </div>
+                    <div>
+                        <div class="eval-stat-num" style="color:#d97706">${iv.avg_score}</div>
+                        <div class="eval-stat-lbl">Avg Score</div>
+                    </div>
+                </div>
+
+                <div class="eval-method-desc">
+                    Generates customized technical/behavioral questions, assesses multi-turn response depth, and produces granular skill ratings.
+                </div>
+            </div>
+
+            <!-- VS Badge -->
+            <div class="eval-vs-badge">VS</div>
+
+            <!-- Method B: Voice Screening -->
+            <div class="eval-method-box">
+                <div class="eval-method-header">
+                    <div class="eval-method-icon eval-icon-voice">
+                        <i class="fa-solid fa-microphone-lines"></i>
+                    </div>
+                    <div class="eval-method-titles">
+                        <h4>${vs.title}</h4>
+                        <span>Preliminary Voice &amp; Spoken Fit Screening</span>
+                    </div>
+                </div>
+
+                <div class="eval-method-stats">
+                    <div>
+                        <div class="eval-stat-num">${vs.total_sessions}</div>
+                        <div class="eval-stat-lbl">Sessions</div>
+                    </div>
+                    <div>
+                        <div class="eval-stat-num" style="color:#7c3aed">${vs.completed_sessions}</div>
+                        <div class="eval-stat-lbl">Completed</div>
+                    </div>
+                    <div>
+                        <div class="eval-stat-num" style="color:#0d9488">${vs.avg_score}</div>
+                        <div class="eval-stat-lbl">Avg Score</div>
+                    </div>
+                </div>
+
+                <div class="eval-method-desc">
+                    Browser speech-to-text screening focusing on verbal fluency, spoken communication, basic domain familiarity, and fast preliminary fit.
+                </div>
+            </div>
+        </div>
+        <p style="font-size:11px; color:var(--text-muted); margin-top:12px; line-height:1.5;">
+            <i class="fa-solid fa-circle-info" style="color:var(--primary); margin-right:4px;"></i>
+            <strong>Independent Evaluation Mechanisms</strong>: Voice Screening and AI Interview Assistant measure different dimensions. The platform maintains separate assessments so recruiters have comprehensive, multi-angle visibility into each candidate.
+        </p>
+    `;
+}
+
+function renderRecentCandidates(candidates) {
+    const wrap = document.getElementById("recentCandidatesWrapper");
+    if (!wrap) return;
+
+    if (!candidates.length) {
+        wrap.innerHTML = `<div class="db-strip-loading"><i class="fa-solid fa-users"></i> No candidates in the database yet.</div>`;
+        return;
+    }
+
+    const rows = candidates.map(c => {
+        const skillsHtml = (c.skills || []).map(s => `<span class="db-skill-pill">${s}</span>`).join("") || `<span style="font-size:11px;color:var(--text-muted)">No skills listed</span>`;
+        const ivBadge = c.interview_completed
+            ? `<span class="db-badge-done" title="AI Interview Completed"><i class="fa-solid fa-check"></i> Interviewed</span>`
+            : `<span class="db-badge-pending">Pending</span>`;
+
+        // Use voice_status field for accurate Screened / Not Screened / Pending display
+        const voiceStatus = c.voice_status || (c.voice_completed ? "Screened" : "Pending");
+        let vsBadge;
+        if (voiceStatus === "Screened") {
+            vsBadge = `<span class="db-badge-done" style="background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0" title="Voice Screening: Screened"><i class="fa-solid fa-check"></i> Screened</span>`;
+        } else if (voiceStatus === "Not Screened") {
+            vsBadge = `<span class="db-badge-done" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca" title="Voice Screening: Not Screened"><i class="fa-solid fa-xmark"></i> Not Screened</span>`;
+        } else {
+            vsBadge = `<span class="db-badge-pending">Pending</span>`;
+        }
+
+        return `
+            <tr>
+                <td>
+                    <div class="db-cand-name">${c.name}</div>
+                    <div class="db-cand-email">${c.email}</div>
+                </td>
+                <td>${skillsHtml}</td>
+                <td>
+                    <div style="display:flex;flex-direction:column;gap:4px;">
+                        <div><small style="color:var(--text-muted);font-size:10px">AI Chat:</small> ${ivBadge}</div>
+                        <div><small style="color:var(--text-muted);font-size:10px">Voice:</small> ${vsBadge}</div>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join("");
+
+    wrap.innerHTML = `
+        <table class="db-table-compact">
+            <thead>
+                <tr>
+                    <th>Candidate</th>
+                    <th>Extracted Skills</th>
+                    <th>Evaluation Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows}
+            </tbody>
+        </table>
+    `;
+}
+
+function renderActivityTimeline(activities) {
+    const wrap = document.getElementById("activityTimelineWrapper");
+    if (!wrap) return;
+
+    if (!activities.length) {
+        wrap.innerHTML = `<div class="db-strip-loading"><i class="fa-solid fa-clock-rotate-left"></i> No recorded system events yet.</div>`;
+        return;
+    }
+
+    const itemsHtml = activities.map(a => `
+        <div class="db-activity-row">
+            <div class="db-act-icon" style="background:${a.color}18; color:${a.color}">
+                <i class="fa-solid ${a.icon}"></i>
+            </div>
+            <div class="db-act-body">
+                <div class="db-act-title">${a.title}</div>
+                <div class="db-act-desc">${a.description}</div>
+            </div>
+            <div class="db-act-time">${a.formatted_time}</div>
+        </div>
+    `).join("");
+
+    wrap.innerHTML = `<div class="db-timeline">${itemsHtml}</div>`;
+}
+
+
+/* ==========================================================
+   MILESTONE 4 — VOICE SCREENING
+   Browser Web Speech API (SpeechRecognition + SpeechSynthesis)
+   No audio files stored. Transcript saved to DB via backend API.
+   Feature completely isolated: failure never affects M1-3.
+========================================================== */
+
+let vsSessionId    = null;
+let vsActive       = false;
+let vsRecognition  = null;
+let vsTtsEnabled   = true;
+
+/* ----------------------------------------------------------
+   Init — wire up VS button events
+---------------------------------------------------------- */
+function initVoiceScreening() {
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const warning = document.getElementById("vsBrowserWarning");
+    if (!SpeechRec && warning) {
+        warning.style.display = "flex";
+    }
+
+    const ttsChk = document.getElementById("vsTtsEnabled");
+    if (ttsChk) ttsChk.addEventListener("change", () => { vsTtsEnabled = ttsChk.checked; });
+
+    const startBtn = document.getElementById("vsStartBtn");
+    const stopBtn  = document.getElementById("vsStopBtn");
+    const saveBtn  = document.getElementById("vsSaveBtn");
+
+    if (startBtn) startBtn.addEventListener("click", startVoiceScreening);
+    if (stopBtn)  stopBtn.addEventListener("click",  stopVoiceScreening);
+    if (saveBtn)  saveBtn.addEventListener("click",  saveVoiceScreening);
+}
+
+/* ----------------------------------------------------------
+   Status indicator helper
+---------------------------------------------------------- */
+function setVsStatus(statusKey, text) {
+    const dot    = document.getElementById("vsStatusDot");
+    const textEl = document.getElementById("vsStatusText");
+    const visualizer = document.getElementById("vsVisualizerBox");
+    if (dot)    dot.className = `vs-status-dot ${statusKey ? "vs-status-" + statusKey : ""}`;
+    if (textEl) textEl.textContent = text;
+    if (visualizer) {
+        const waveText = visualizer.querySelector(".vs-wave-status-text");
+        if (statusKey === "recording") {
+            visualizer.classList.add("vs-visualizer-active");
+            if (waveText) waveText.textContent = "Listening to voice input...";
+        } else if (statusKey === "processing") {
+            visualizer.classList.add("vs-visualizer-active");
+            if (waveText) waveText.textContent = "AI Processing speech...";
+        } else {
+            visualizer.classList.remove("vs-visualizer-active");
+            if (waveText) waveText.textContent = "Audio Engine Ready";
+        }
+    }
+}
+
+/* ----------------------------------------------------------
+   Populate dropdowns with candidates and jobs
+---------------------------------------------------------- */
+async function loadVsDropdowns() {
+    const vsCandSel = document.getElementById("vsCandidate");
+    const vsJobSel  = document.getElementById("vsJob");
+    if (!vsCandSel || !vsJobSel) return;
+
+    try {
+        const [cRes, jRes] = await Promise.all([
+            fetch(`${API}/candidates`, { cache: "no-store" }).catch(() => ({ ok: false })),
+            fetch(`${API}/jobs`,       { cache: "no-store" }).catch(() => ({ ok: false }))
+        ]);
+        const candidates = cRes.ok ? await cRes.json() : [];
+        const jobs       = jRes.ok ? await jRes.json() : [];
+
+        const prevCand = vsCandSel.value;
+        const prevJob  = vsJobSel.value;
+
+        vsCandSel.innerHTML = `<option value="">Select candidate</option>`;
+        if (candidates.length === 0 && !cRes.ok) {
+            const errOpt = document.createElement("option");
+            errOpt.value = "";
+            errOpt.textContent = "⚠️ Unable to load candidates (backend unavailable)";
+            vsCandSel.appendChild(errOpt);
+        } else {
+            candidates.forEach(c => {
+                const o = document.createElement("option");
+                o.value = c.id;
+                o.textContent = c.name || `Candidate #${c.id}`;
+                vsCandSel.appendChild(o);
+            });
+        }
+        if (prevCand) vsCandSel.value = prevCand;
+
+        vsJobSel.innerHTML = `<option value="">Select job</option>`;
+        if (jobs.length === 0 && !jRes.ok) {
+            const errOpt = document.createElement("option");
+            errOpt.value = "";
+            errOpt.textContent = "⚠️ Unable to load jobs (backend unavailable)";
+            vsJobSel.appendChild(errOpt);
+        } else {
+            jobs.forEach(j => {
+                const o = document.createElement("option");
+                o.value = j.id;
+                o.textContent = j.title;
+                vsJobSel.appendChild(o);
+            });
+        }
+        if (prevJob) vsJobSel.value = prevJob;
+
+    } catch (err) {
+        console.error("VS dropdown error:", err);
+    }
+}
+
+/* ----------------------------------------------------------
+   Start screening — POST /voice-screening/start
+---------------------------------------------------------- */
+async function startVoiceScreening() {
+    const candidateId = document.getElementById("vsCandidate")?.value;
+    const jobId       = document.getElementById("vsJob")?.value;
+
+    if (!candidateId) { showToast("Please select a candidate.", true); return; }
+    if (!jobId)       { showToast("Please select a job position.", true); return; }
+
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRec) {
+        showToast("Voice recognition is not supported in this browser. Please use Chrome or Edge.", true);
+        return;
+    }
+
+    const startBtn = document.getElementById("vsStartBtn");
+    if (startBtn) { startBtn.disabled = true; startBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Connecting...`; }
+    setVsStatus("processing", "Connecting to AI...");
+
+    try {
+        const res = await fetch(`${API}/voice-screening/start`, {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ candidate_id: parseInt(candidateId), job_id: parseInt(jobId) })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Failed to start screening");
+
+        vsSessionId = data.session_id;
+        vsActive    = true;
+
+        // Update control state
+        if (startBtn) { startBtn.disabled = true; startBtn.innerHTML = `<i class="fa-solid fa-circle-check"></i> In Progress`; }
+        const stopBtn = document.getElementById("vsStopBtn");
+        if (stopBtn) stopBtn.disabled = false;
+        document.getElementById("vsCandidate").disabled = true;
+        document.getElementById("vsJob").disabled = true;
+
+        // Display first question
+        vsSetCurrentQuestion(data.first_question);
+        vsAppendTranscript("ai", data.first_question);
+
+        // Speak it if TTS enabled, then start listening
+        if (vsTtsEnabled) {
+            vsSpeak(data.first_question, () => { if (vsActive) vsStartListening(); });
+        } else {
+            vsStartListening();
+        }
+
+        setVsStatus("recording", "Listening...");
+        showToast(`Voice screening started for ${data.candidate_name}.`);
+
+    } catch (err) {
+        console.error("VS start error:", err);
+        showToast(err.message || "Failed to start voice screening.", true);
+        setVsStatus("", "Ready");
+        if (startBtn) { startBtn.disabled = false; startBtn.innerHTML = `<i class="fa-solid fa-microphone"></i> Start Screening`; }
+    }
+}
+
+/* ----------------------------------------------------------
+   Start browser SpeechRecognition
+   — Restarts automatically on silence / transient errors
+   — Stops permanently on microphone-denied error
+---------------------------------------------------------- */
+function vsStartListening() {
+    if (!vsActive) return;
+
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRec) return;
+
+    vsRecognition = new SpeechRec();
+    vsRecognition.lang            = "en-US";
+    vsRecognition.continuous      = false;
+    vsRecognition.interimResults  = true;
+
+    let finalText = "";
+
+    vsRecognition.onstart = () => {
+        setVsStatus("recording", "Listening... Speak now.");
+    };
+
+    vsRecognition.onresult = (event) => {
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+                finalText += event.results[i][0].transcript;
+            } else {
+                interim += event.results[i][0].transcript;
+            }
+        }
+        // Show live interim text
+        const interimEl = document.getElementById("vsInterimText");
+        if (interimEl) interimEl.textContent = interim ? `"${interim}..."` : "";
+    };
+
+    vsRecognition.onend = async () => {
+        if (!vsActive) return;
+
+        if (finalText.trim()) {
+            const spoken = finalText.trim();
+            finalText = "";
+
+            // Clear interim display
+            const interimEl = document.getElementById("vsInterimText");
+            if (interimEl) interimEl.textContent = "";
+
+            vsAppendTranscript("candidate", spoken);
+            setVsStatus("processing", "Processing response...");
+
+            await vsSendResponse(spoken);
+        } else {
+            // No speech — wait and try again
+            setVsStatus("recording", "No speech detected. Listening again...");
+            setTimeout(() => { if (vsActive) vsStartListening(); }, 1200);
+        }
+    };
+
+    vsRecognition.onerror = (event) => {
+        console.warn("SpeechRecognition error:", event.error);
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+            showToast("Microphone access denied. Please allow microphone in browser settings.", true);
+            setVsStatus("", "Microphone denied");
+            vsActive = false;
+            const stopBtn = document.getElementById("vsStopBtn");
+            const saveBtn = document.getElementById("vsSaveBtn");
+            if (stopBtn) stopBtn.disabled = true;
+            if (saveBtn && vsSessionId) saveBtn.disabled = false;
+        } else if (event.error === "no-speech") {
+            setTimeout(() => { if (vsActive) vsStartListening(); }, 1200);
+        } else if (event.error === "network") {
+            showToast("Network error during speech recognition. Retrying...", true);
+            setTimeout(() => { if (vsActive) vsStartListening(); }, 2500);
+        } else {
+            setTimeout(() => { if (vsActive) vsStartListening(); }, 2000);
+        }
+    };
+
+    try {
+        vsRecognition.start();
+    } catch (startErr) {
+        console.warn("SpeechRecognition.start() error:", startErr);
+        setTimeout(() => { if (vsActive) vsStartListening(); }, 1500);
+    }
+}
+
+/* ----------------------------------------------------------
+   Send candidate transcript to backend — POST /voice-screening/{id}/respond
+---------------------------------------------------------- */
+async function vsSendResponse(spokenText) {
+    if (!vsSessionId || !vsActive) return;
+
+    try {
+        const res = await fetch(`${API}/voice-screening/${vsSessionId}/respond`, {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ transcript: spokenText })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Failed to get next question");
+
+        const nextQ = data.next_question;
+        vsSetCurrentQuestion(nextQ);
+        vsAppendTranscript("ai", nextQ);
+
+        // Speak next question, then resume listening
+        if (vsTtsEnabled) {
+            vsSpeak(nextQ, () => { if (vsActive) vsStartListening(); });
+        } else {
+            if (vsActive) vsStartListening();
+        }
+        setVsStatus("recording", "Listening...");
+
+    } catch (err) {
+        console.error("VS respond error:", err);
+        showToast(err.message || "AI failed to generate next question. Listening again...", true);
+        setVsStatus("recording", "Error — listening again...");
+        setTimeout(() => { if (vsActive) vsStartListening(); }, 2500);
+    }
+}
+
+/* ----------------------------------------------------------
+   Browser TTS — SpeechSynthesis
+---------------------------------------------------------- */
+function vsSpeak(text, onEndCallback) {
+    if (!window.speechSynthesis) {
+        // TTS not available — just continue
+        if (onEndCallback) onEndCallback();
+        return;
+    }
+    window.speechSynthesis.cancel(); // Stop any currently playing
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "en-US";
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
+    if (onEndCallback) utterance.onend = onEndCallback;
+    utterance.onerror = () => { if (onEndCallback) onEndCallback(); }; // Continue even if TTS errors
+    window.speechSynthesis.speak(utterance);
+}
+
+/* ----------------------------------------------------------
+   Stop screening
+---------------------------------------------------------- */
+function stopVoiceScreening() {
+    vsActive = false;
+
+    if (vsRecognition) {
+        try { vsRecognition.stop(); } catch (e) {}
+        vsRecognition = null;
+    }
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+
+    const stopBtn = document.getElementById("vsStopBtn");
+    const saveBtn = document.getElementById("vsSaveBtn");
+    if (stopBtn) stopBtn.disabled = true;
+    if (saveBtn) saveBtn.disabled = false;
+
+    // Clear interim
+    const interimEl = document.getElementById("vsInterimText");
+    if (interimEl) interimEl.textContent = "";
+
+    setVsStatus("", "Stopped — click Save Screening to generate assessment");
+    showToast("Screening stopped. Click 'Save Screening' to generate the assessment.");
+}
+
+/* ----------------------------------------------------------
+   Save screening — POST /voice-screening/{id}/end
+   Generates AI assessment and persists to DB.
+---------------------------------------------------------- */
+async function saveVoiceScreening() {
+    if (!vsSessionId) {
+        showToast("No active screening session to save.", true);
+        return;
+    }
+
+    const saveBtn = document.getElementById("vsSaveBtn");
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating Assessment...`; }
+    setVsStatus("processing", "Generating assessment...");
+
+    try {
+        const res = await fetch(`${API}/voice-screening/${vsSessionId}/end`, {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Failed to end screening");
+
+        setVsStatus("", "Completed");
+        vsDisplayAssessment(data.assessment);
+
+        if (saveBtn) { saveBtn.innerHTML = `<i class="fa-solid fa-check"></i> Saved`; }
+        showToast("Screening saved and assessment generated.");
+
+    } catch (err) {
+        console.error("VS save error:", err);
+        showToast(err.message || "Failed to save screening.", true);
+        setVsStatus("", "Save failed");
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Save Screening`; }
+    }
+}
+
+/* ----------------------------------------------------------
+   Helpers — transcript display
+---------------------------------------------------------- */
+function vsSetCurrentQuestion(question) {
+    const el = document.getElementById("vsCurrentQuestion");
+    if (el) el.textContent = question;
+}
+
+function vsAppendTranscript(role, content) {
+    const container = document.getElementById("vsTranscriptContent");
+    if (!container) return;
+
+    // Remove placeholder on first real entry
+    const ph = container.querySelector(".vs-placeholder");
+    if (ph) ph.remove();
+
+    // Ensure interim element stays at the bottom
+    let interimEl = document.getElementById("vsInterimText");
+    if (interimEl) interimEl.remove();
+
+    const div = document.createElement("div");
+    div.className = `vs-transcript-turn vs-turn-${role}`;
+    div.innerHTML = `
+        <span class="vs-turn-role">
+            ${role === "ai"
+                ? '<i class="fa-solid fa-robot"></i> NovaAI'
+                : '<i class="fa-solid fa-user"></i> Candidate'}
+        </span>
+        <p>${escapeHTML(content)}</p>`;
+    container.appendChild(div);
+
+    // Re-append interim element
+    interimEl = document.createElement("p");
+    interimEl.id = "vsInterimText";
+    interimEl.className = "vs-interim";
+    container.appendChild(interimEl);
+
+    container.scrollTop = container.scrollHeight;
+}
+
+/* ----------------------------------------------------------
+   Render assessment panel after save
+---------------------------------------------------------- */
+function vsDisplayAssessment(assessment) {
+    const panel   = document.getElementById("vsAssessmentPanel");
+    const content = document.getElementById("vsAssessmentContent");
+    if (!panel || !content) return;
+
+    if (!assessment) { panel.style.display = "none"; return; }
+
+    const ov   = assessment.overall_score       ?? "N/A";
+    const comm = assessment.communication_score ?? "N/A";
+    const tech = assessment.technical_score     ?? "N/A";
+    const rec  = assessment.recommendation      || "Needs Further Evaluation";
+    const fb   = assessment.overall_feedback    || "No feedback generated.";
+    const str  = Array.isArray(assessment.strengths)              ? assessment.strengths              : [];
+    const imp  = Array.isArray(assessment.areas_for_improvement)  ? assessment.areas_for_improvement  : [];
+
+    // Deterministic Screened / Not Screened decision — same threshold as backend:
+    //   SCREENED     = communication_score >= 5.5 AND overall_score >= 5.0
+    //   NOT SCREENED = communication_score <  5.5 OR  overall_score <  5.0
+    const commNum    = typeof comm === "number" ? comm : parseFloat(comm) || 0;
+    const overallNum = typeof ov   === "number" ? ov   : parseFloat(ov)   || 0;
+    const isScreened = (commNum >= 5.5 && overallNum >= 5.0) && !assessment.error;
+    const screeningDecision = isScreened ? "SCREENED" : "NOT SCREENED";
+
+    let recClass = "rec-consider";
+    const recLow = rec.toLowerCase();
+    if (recLow.includes("strong"))  recClass = "rec-strong";
+    else if (recLow.includes("needs")) recClass = "rec-needs";
+
+    content.innerHTML = `
+        <!-- ═══ PRELIMINARY SCREENING RESULT BANNER ═══ -->
+        <div style="
+            display:flex; align-items:center; gap:14px;
+            padding:18px 20px; border-radius:10px; margin-bottom:20px;
+            background:${isScreened ? '#f0fdf4' : '#fef2f2'};
+            border:2px solid ${isScreened ? '#16a34a' : '#dc2626'};
+        ">
+            <div style="
+                width:48px; height:48px; border-radius:50%;
+                background:${isScreened ? '#16a34a' : '#dc2626'};
+                display:flex; align-items:center; justify-content:center;
+                flex-shrink:0;
+            ">
+                <i class="fa-solid ${isScreened ? 'fa-check' : 'fa-xmark'}" style="color:#fff;font-size:20px;"></i>
+            </div>
+            <div style="flex:1;">
+                <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Preliminary Voice Screening Result</div>
+                <div style="font-size:20px;font-weight:800;color:${isScreened ? '#16a34a' : '#dc2626'};letter-spacing:.01em;">
+                    ${isScreened ? '✓ SCREENED' : '✕ NOT SCREENED'}
+                </div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+                    ${isScreened
+                        ? 'Candidate meets the preliminary communication & professional suitability threshold.'
+                        : 'Candidate did not meet the preliminary communication & suitability threshold.'}
+                </div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+                <div style="font-size:10px;color:var(--text-muted);margin-bottom:2px;">Threshold</div>
+                <div style="font-size:11px;font-weight:600;color:var(--text-muted);">Comm ≥ 5.5 &amp; Overall ≥ 5.0</div>
+            </div>
+        </div>
+
+        <!-- ═══ SCORE CARDS ═══ -->
+        <div class="vs-assessment-scores">
+            <div class="vs-score-card">
+                <div class="vs-score-val">${ov}</div>
+                <div class="vs-score-lbl">Overall</div>
+                <div class="vs-score-max">/ 10</div>
+            </div>
+            <div class="vs-score-card">
+                <div class="vs-score-val">${comm}</div>
+                <div class="vs-score-lbl">Communication</div>
+                <div class="vs-score-max">/ 10</div>
+            </div>
+            <div class="vs-score-card">
+                <div class="vs-score-val">${tech}</div>
+                <div class="vs-score-lbl">Domain Familiarity</div>
+                <div class="vs-score-max">/ 10</div>
+            </div>
+            <div class="vs-recommendation ${recClass}">
+                <i class="fa-solid fa-medal"></i>
+                <span>${escapeHTML(rec)}</span>
+                <small>AI recommendation · recruiter makes final decision</small>
+            </div>
+        </div>
+
+        ${(str.length || imp.length) ? `
+        <div class="vs-eval-2col">
+            <div class="vs-assessment-section">
+                <h4 class="vs-section-title"><i class="fa-solid fa-circle-check" style="color:#10b981"></i> Strengths</h4>
+                ${str.length ? `<ul class="vs-list">${str.map(s => `<li>${escapeHTML(s)}</li>`).join("")}</ul>` : `<p class="vs-feedback-text" style="color:var(--text-muted);">None noted.</p>`}
+            </div>
+            <div class="vs-assessment-section">
+                <h4 class="vs-section-title"><i class="fa-solid fa-circle-arrow-up" style="color:#f59e0b"></i> Areas for Improvement</h4>
+                ${imp.length ? `<ul class="vs-list">${imp.map(i => `<li>${escapeHTML(i)}</li>`).join("")}</ul>` : `<p class="vs-feedback-text" style="color:var(--text-muted);">None noted.</p>`}
+            </div>
+        </div>` : ""}
+
+        <div class="vs-assessment-section" style="margin-top:12px;">
+            <h4 class="vs-section-title"><i class="fa-solid fa-comment-dots" style="color:var(--primary);"></i> Preliminary Assessment Summary</h4>
+            <p class="vs-feedback-text">${escapeHTML(fb)}</p>
+        </div>
+
+        ${(assessment.answer_naturalness && assessment.answer_naturalness !== "Unable to Analyze") ? `
+        <div class="vs-assessment-section" style="margin-top:14px;padding:14px 16px;border-radius:8px;background:var(--surface-alt,#f8f9fb);border:1px solid var(--border,#e5e7eb);">
+            <h4 class="vs-section-title" style="margin-bottom:8px;">
+                <i class="fa-solid fa-magnifying-glass" style="color:#7c3aed;"></i>
+                Answer Naturalness
+            </h4>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                <span style="
+                    display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:.03em;
+                    ${assessment.answer_naturalness === 'Natural'
+                        ? 'background:#dcfce7;color:#15803d;'
+                        : assessment.answer_naturalness === 'Possibly Scripted'
+                        ? 'background:#fef9c3;color:#854d0e;'
+                        : 'background:#fee2e2;color:#991b1b;'}
+                ">${escapeHTML(assessment.answer_naturalness)}</span>
+            </div>
+            <p class="vs-feedback-text" style="margin-bottom:6px;">${escapeHTML(assessment.naturalness_feedback || "")}</p>
+            <p style="font-size:10px;color:var(--text-muted);font-style:italic;margin:0;">
+                <i class="fa-solid fa-circle-info"></i>
+                This is an observational indicator only — not a guaranteed AI-generation detector.
+                It does not affect the Screened / Not Screened decision.
+            </p>
+        </div>` : ""}
+
+        ${assessment.error ? `
+        <div class="vs-error-note">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            Note: Assessment may be incomplete — AI encountered an error. Transcript is preserved.
+        </div>` : ""}
+
+        <div style="margin-top:20px;display:flex;gap:10px;">
+            <button class="btn-secondary" onclick="vsReset()">
+                <i class="fa-solid fa-rotate-left"></i> Start New Screening
+            </button>
+        </div>
+    `;
+
+    panel.style.display = "block";
+    panel.scrollIntoView({ behavior: "smooth" });
+}
+
+/* ----------------------------------------------------------
+   Reset voice screening state
+---------------------------------------------------------- */
+function vsReset() {
+    vsSessionId   = null;
+    vsActive      = false;
+
+    if (vsRecognition) { try { vsRecognition.stop(); } catch(e) {} vsRecognition = null; }
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+
+    const startBtn = document.getElementById("vsStartBtn");
+    const stopBtn  = document.getElementById("vsStopBtn");
+    const saveBtn  = document.getElementById("vsSaveBtn");
+
+    if (startBtn) { startBtn.disabled = false; startBtn.innerHTML = `<i class="fa-solid fa-microphone"></i> Start Screening`; }
+    if (stopBtn)  stopBtn.disabled = true;
+    if (saveBtn)  { saveBtn.disabled = true; saveBtn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Save Screening`; }
+
+    const candSel = document.getElementById("vsCandidate");
+    const jobSel  = document.getElementById("vsJob");
+    if (candSel) candSel.disabled = false;
+    if (jobSel)  jobSel.disabled  = false;
+
+    vsSetCurrentQuestion("Start the screening to receive your first question.");
+
+    const tc = document.getElementById("vsTranscriptContent");
+    if (tc) tc.innerHTML = `<p class="vs-placeholder">Your spoken responses and AI questions will appear here...</p>`;
+
+    const ap = document.getElementById("vsAssessmentPanel");
+    if (ap) ap.style.display = "none";
+
+    setVsStatus("", "Ready");
+}
+
+
+/* ==========================================================
+   MILESTONE 4 — NAVIGATION & INITIALIZATION WIRING
+========================================================== */
+
+window.addEventListener("DOMContentLoaded", () => {
+    // Init voice screening button handlers
+    if (typeof initVoiceScreening === "function") {
+        initVoiceScreening();
+    }
+
+    // Dashboard — load data when navigating to it
+    const dashMenuItem = document.querySelector('[data-page="dashboardPage"]');
+    if (dashMenuItem) {
+        dashMenuItem.addEventListener("click", () => {
+            loadDashboard();
+        });
+    }
+
+    // Refresh Dashboard button
+    const refreshBtn = document.getElementById("refreshDashboardBtn");
+    if (refreshBtn) {
+        refreshBtn.addEventListener("click", () => {
+            loadDashboard();
+            showToast("Dashboard analytics refreshed");
+        });
+    }
+
+    // Voice Screening — populate dropdowns when navigating to it
+    const vsMenuItem = document.querySelector('[data-page="voiceScreeningPage"]');
+    if (vsMenuItem) {
+        vsMenuItem.addEventListener("click", () => {
+            loadVsDropdowns();
+        });
+    }
+
+    // Hash navigation support on page reload
+    const currentHash = window.location.hash.replace("#", "");
+    if (currentHash && document.getElementById(currentHash)) {
+        const targetMenu = document.querySelector(`[data-page="${currentHash}"]`);
+        if (targetMenu) targetMenu.click();
+    } else {
+        // Default to Dashboard
+        loadDashboard();
+    }
+
+    // Pre-populate dropdowns
+    loadVsDropdowns();
+});

@@ -79,8 +79,8 @@ def generate_questions(request: InterviewQuestionRequest):
 
         except Exception as e:
             raise HTTPException(
-                status_code=500,
-                detail=f"Failed to generate questions: {str(e)}"
+                status_code=503,
+                detail=str(e)
             )
 
     finally:
@@ -138,8 +138,8 @@ def regenerate_question(request: RegenerateQuestionRequest):
 
         except Exception as e:
             raise HTTPException(
-                status_code=500,
-                detail=f"Failed to regenerate question: {str(e)}"
+                status_code=503,
+                detail=str(e)
             )
 
     finally:
@@ -215,6 +215,15 @@ def start_interview(request: InterviewStartRequest):
             db.add(session)
             db.commit()
 
+            # Milestone 4: auto-advance stage to 'interviewed' if at an earlier stage.
+            # NEVER overwrites offered/hired — recruiter decisions are preserved.
+            try:
+                if candidate.recruitment_stage in (None, "applied", "screened"):
+                    candidate.recruitment_stage = "interviewed"
+                    db.commit()
+            except Exception:
+                pass  # Stage update failure must not block the interview start response
+
             return {
                 "session_id": session_id,
                 "initial_message": initial_message
@@ -222,8 +231,8 @@ def start_interview(request: InterviewStartRequest):
 
         except Exception as e:
             raise HTTPException(
-                status_code=500,
-                detail=f"Failed to start interview: {str(e)}"
+                status_code=503,
+                detail=str(e)
             )
 
     finally:
@@ -261,7 +270,7 @@ def send_interview_message(session_id: str, request: InterviewMessageRequest):
             }
         
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to generate response: {str(e)}")
+            raise HTTPException(status_code=503, detail=str(e))
 
     finally:
         db.close()
@@ -310,7 +319,7 @@ def end_interview(session_id: str):
             }
 
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to generate summary: {str(e)}")
+            raise HTTPException(status_code=503, detail=str(e))
 
     finally:
         db.close()
@@ -348,21 +357,12 @@ def get_ats_candidates():
                         interview_status = "Completed"
 
                 # --------------------------------------------------------
-                # Step 2: Attempt to get the match percentage.
-                # If the matching service or Groq/Gemini is unavailable
-                # (e.g. 429 rate limit), fall back to 0 gracefully.
-                # ATS status is NEVER blocked by this failure.
+                # Milestone 4 fix: ATS status is DB-only.
+                # calculate_match() is NOT called here because it invokes
+                # the Groq/Gemini AI which can fail with 429 rate-limit errors.
+                # ATS must always return 200 regardless of AI availability.
                 # --------------------------------------------------------
-                match_percentage = 0
-                try:
-                    from app.services.matching import calculate_match
-                    match_result = calculate_match(candidate, job)
-                    match_percentage = match_result.get("match_score", 0)
-                except Exception as match_err:
-                    print(
-                        f"[WARNING] ATS match score unavailable for "
-                        f"candidate={candidate.id} job={job.id}: {match_err}"
-                    )
+                match_percentage = None  # Not calculated here — use /matching/job/{id} for scores
 
                 results.append({
                     "candidate_id": candidate.id,
