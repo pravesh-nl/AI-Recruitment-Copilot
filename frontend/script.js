@@ -4,7 +4,7 @@
    All endpoints unchanged. Only UI rendering redesigned.
 ========================================================== */
 
-const API = "http://127.0.0.1:8000";
+const API = "https://ai-driven-smart-hiring-platform-with-2q4r.onrender.com";
 
 /* ----------------------------------------------------------
    STATE
@@ -419,7 +419,8 @@ function showCandidate(candidate) {
             <p><strong>Skills:</strong> ${safeParseJSON(candidate.skills, []).join(", ") || "—"}</p>
             <p><strong>Projects:</strong> ${safeParseJSON(candidate.projects, []).join(", ") || "—"}</p>
             <p><strong>Certifications:</strong> ${safeParseJSON(candidate.certifications, []).join(", ") || "—"}</p>
-        </div>`;
+        </div>`;
+
 }
 
 closeModal.addEventListener("click", () => {
