@@ -153,3 +153,42 @@ def update_candidate_stage(candidate_id: int, body: StageUpdate):
         }
     finally:
         db.close()
+
+
+# ==============================================================
+# Recruiter Hiring Decision: PATCH /candidates/{candidate_id}/hiring-status
+# ==============================================================
+
+VALID_HIRING_STATUSES = ["IN_PROGRESS", "HIRED", "NOT_SELECTED", "NOT_EVALUATED"]
+
+class HiringStatusUpdate(BaseModel):
+    status: str
+
+@router.patch("/candidates/{candidate_id}/hiring-status")
+def update_hiring_status(candidate_id: int, body: HiringStatusUpdate):
+    """
+    Update the recruiter's explicit hiring decision for a candidate.
+    Must not be automated.
+    """
+    if body.status not in VALID_HIRING_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid status '{body.status}'. Must be one of: {VALID_HIRING_STATUSES}"
+        )
+
+    db = SessionLocal()
+    try:
+        candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+        if not candidate:
+            raise HTTPException(status_code=404, detail="Candidate not found")
+
+        candidate.hiring_status = body.status
+        db.commit()
+
+        return {
+            "message": f"Hiring status updated to '{body.status}'",
+            "candidate_id": candidate_id,
+            "hiring_status": body.status
+        }
+    finally:
+        db.close()

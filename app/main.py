@@ -55,6 +55,16 @@ def run_migrations():
             # Column already exists — silently skip
             pass
 
+        # ── Recruiter Hiring Decision Migration ───────────────────────────────
+        try:
+            conn.execute(
+                text("ALTER TABLE candidates ADD COLUMN hiring_status VARCHAR(50) DEFAULT 'IN_PROGRESS'")
+            )
+            conn.commit()
+            print("[Feature Migration] Added hiring_status column to candidates table.")
+        except Exception:
+            pass
+
 
 run_migrations()
 

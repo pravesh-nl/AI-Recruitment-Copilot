@@ -30,3 +30,7 @@ class Candidate(Base):
     # Valid values: applied | screened | interviewed | offered | hired
     # Added via safe ALTER TABLE migration in main.py — existing records default to "applied"
     recruitment_stage = Column(String(30), nullable=True, default="applied")
+    
+    # Recruiter Hiring Decision
+    # Valid values: IN_PROGRESS | HIRED | NOT_SELECTED | NOT_EVALUATED
+    hiring_status = Column(String(50), nullable=True, default="IN_PROGRESS")

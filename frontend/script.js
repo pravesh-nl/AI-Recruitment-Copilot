@@ -333,7 +333,7 @@ async function loadCandidates() {
                 <td>${candidate.name || "—"}</td>
                 <td>${candidate.email || "—"}</td>
                 <td>${candidate.phone || "—"}</td>
-                <td><span class="status processed">Processed</span></td>
+                <td><span class="status ${getHiringStatusClass(candidate.hiring_status)}">${formatHiringStatus(candidate.hiring_status)}</span></td>
                 <td>
                     <button class="view-btn" onclick='showCandidate(${JSON.stringify(candidate)})'>
                         View
@@ -371,7 +371,7 @@ function renderAllCandidatesTable(candidates) {
             <td>${candidate.name || "—"}</td>
             <td>${candidate.email || "—"}</td>
             <td>${candidate.phone || "—"}</td>
-            <td><span class="status processed">Processed</span></td>
+            <td><span class="status ${getHiringStatusClass(candidate.hiring_status)}">${formatHiringStatus(candidate.hiring_status)}</span></td>
             <td>
                 <button class="view-btn" onclick='showCandidate(${JSON.stringify(candidate)})'>
                     View
@@ -419,7 +419,22 @@ function showCandidate(candidate) {
             <p><strong>Skills:</strong> ${safeParseJSON(candidate.skills, []).join(", ") || "—"}</p>
             <p><strong>Projects:</strong> ${safeParseJSON(candidate.projects, []).join(", ") || "—"}</p>
             <p><strong>Certifications:</strong> ${safeParseJSON(candidate.certifications, []).join(", ") || "—"}</p>
-        </div>`;
+        </div>
+        
+        <hr class="divider">
+        <h3 style="color:var(--primary);font-size:16px;margin-bottom:10px;"><i class="fa-solid fa-gavel"></i> Recruiter Decision</h3>
+        <div style="margin-bottom:15px; font-size:14px;">
+            <strong>Current Status:</strong> <span id="modalHiringStatus" class="status ${getHiringStatusClass(candidate.hiring_status)}">${formatHiringStatus(candidate.hiring_status)}</span>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button type="button" class="btn-primary" onclick="updateHiringStatus(${candidate.id}, 'HIRED')" style="background-color:#10b981; border-color:#10b981;">
+                <i class="fa-solid fa-check"></i> Hire Candidate
+            </button>
+            <button type="button" class="btn-secondary" onclick="updateHiringStatus(${candidate.id}, 'NOT_SELECTED')" style="color:#ef4444; border-color:#ef4444; background:white;">
+                <i class="fa-solid fa-xmark"></i> Not Selected
+            </button>
+        </div>
+        `;
 
 }
 
@@ -842,11 +857,16 @@ function displayMatchingResults(results, jobId) {
                 </div>
             </div>
 
-            <div class="mc-body">
-                <span class="mc-exp">
-                    <i class="fa-solid fa-briefcase"></i>
-                    ${candidate.candidate_experience} yrs experience
-                </span>
+            <div class="mc-body" style="justify-content: space-between; align-items: center;">
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <span class="mc-exp">
+                        <i class="fa-solid fa-briefcase"></i>
+                        ${candidate.candidate_experience} yrs experience
+                    </span>
+                    <span class="status ${getHiringStatusClass(candidate.hiring_status)}" style="font-size:11px; padding:4px 8px; border-radius:4px; border:1px solid currentColor;">
+                        ${formatHiringStatus(candidate.hiring_status)}
+                    </span>
+                </div>
                 <span class="match-level-badge ${badgeClass}">
                     ${escapeHTML(candidate.match_level || "—")}
                 </span>
@@ -1756,8 +1776,8 @@ async function loadDashboard() {
         // 5. Render Recent Candidates Table
         renderRecentCandidates(data.recent_candidates || []);
 
-        // 6. Render Recent System Activity
-        renderActivityTimeline(data.recent_activity || []);
+        // 6. Render Hiring Decisions
+        renderHiringDecisions(data.hiring_decisions?.list || []);
 
         // 7. Update Timestamp
         const lastUpdated = document.getElementById("dbLastUpdated");
@@ -2264,29 +2284,82 @@ function renderRecentCandidates(candidates) {
     `;
 }
 
-function renderActivityTimeline(activities) {
-    const wrap = document.getElementById("activityTimelineWrapper");
+function renderHiringDecisions(decisions) {
+    const wrap = document.getElementById("hiringDecisionsWrapper");
     if (!wrap) return;
 
-    if (!activities.length) {
-        wrap.innerHTML = `<div class="db-strip-loading"><i class="fa-solid fa-clock-rotate-left"></i> No recorded system events yet.</div>`;
+    if (!decisions.length) {
+        wrap.innerHTML = `<div class="db-strip-loading"><i class="fa-solid fa-gavel"></i> No hiring decisions made yet.</div>`;
         return;
     }
 
-    const itemsHtml = activities.map(a => `
+    const itemsHtml = decisions.map(d => {
+        let icon = "fa-clock";
+        let color = "#6b7280";
+        if (d.hiring_status === "HIRED") { icon = "fa-check"; color = "#10b981"; }
+        else if (d.hiring_status === "NOT_SELECTED") { icon = "fa-xmark"; color = "#ef4444"; }
+        else if (d.hiring_status === "IN_PROGRESS") { icon = "fa-spinner"; color = "#3b82f6"; }
+        else if (d.hiring_status === "NOT_EVALUATED") { icon = "fa-circle-question"; color = "#8b5cf6"; }
+
+        return `
         <div class="db-activity-row">
-            <div class="db-act-icon" style="background:${a.color}18; color:${a.color}">
-                <i class="fa-solid ${a.icon}"></i>
+            <div class="db-act-icon" style="background:${color}18; color:${color}">
+                <i class="fa-solid ${icon}"></i>
             </div>
             <div class="db-act-body">
-                <div class="db-act-title">${a.title}</div>
-                <div class="db-act-desc">${a.description}</div>
+                <div class="db-act-title">${d.name}</div>
+                <div class="db-act-desc">${formatHiringStatus(d.hiring_status)}</div>
             </div>
-            <div class="db-act-time">${a.formatted_time}</div>
+            <div class="db-act-time"></div>
         </div>
-    `).join("");
+        `;
+    }).join("");
 
     wrap.innerHTML = `<div class="db-timeline">${itemsHtml}</div>`;
+}
+
+function getHiringStatusClass(status) {
+    if (status === "HIRED") return "processed"; // Green-ish
+    if (status === "NOT_SELECTED") return "error"; // Red-ish
+    if (status === "IN_PROGRESS") return "pending"; // Blue/Yellow
+    return "pending";
+}
+
+function formatHiringStatus(status) {
+    if (!status) return "In Progress";
+    if (status === "HIRED") return "Hired";
+    if (status === "NOT_SELECTED") return "Not Selected";
+    if (status === "IN_PROGRESS") return "In Progress";
+    if (status === "NOT_EVALUATED") return "Pending";
+    return status.replace(/_/g, " ");
+}
+
+async function updateHiringStatus(candidateId, status) {
+    try {
+        const res = await fetch(`${API}/candidates/${candidateId}/hiring-status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status })
+        });
+        if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.detail || "Failed to update status");
+        }
+        
+        // Update modal UI instantly
+        const modalStatusEl = document.getElementById("modalHiringStatus");
+        if (modalStatusEl) {
+            modalStatusEl.className = "status " + getHiringStatusClass(status);
+            modalStatusEl.textContent = formatHiringStatus(status);
+        }
+        
+        showToast("Hiring status updated to " + formatHiringStatus(status));
+        
+        // Refresh tables in background
+        loadCandidates();
+    } catch (err) {
+        showToast(err.message, true);
+    }
 }
 
 

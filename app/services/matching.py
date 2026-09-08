@@ -774,6 +774,9 @@ def calculate_match(candidate, job):
 
         "required_experience":
             required_experience,
+            
+        "hiring_status":
+            candidate.hiring_status,
 
         "skill_gap":
             missing_skills

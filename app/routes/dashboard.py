@@ -299,70 +299,30 @@ def get_dashboard_analytics():
             })
 
         # -------------------------------------------------------------
-        # 6. Recent System Activity Timeline (Real DB Timestamps)
+        # 6. Hiring Decisions (Replaces Recent Activity)
         # -------------------------------------------------------------
-        activities = []
-
+        hiring_stats = {
+            "HIRED": 0,
+            "NOT_SELECTED": 0,
+            "IN_PROGRESS": 0,
+            "NOT_EVALUATED": 0
+        }
+        
         for cand in candidates:
-            if cand.uploaded_at:
-                activities.append({
-                    "timestamp": cand.uploaded_at,
-                    "formatted_time": cand.uploaded_at.strftime("%b %d, %H:%M"),
-                    "type": "resume_upload",
-                    "icon": "fa-file-arrow-up",
-                    "color": "#ea580c",
-                    "title": "Resume Processed",
-                    "description": f"Extracted profile for {cand.name or 'Candidate'}"
-                })
-
-        for job in jobs:
-            if job.created_at:
-                activities.append({
-                    "timestamp": job.created_at,
-                    "formatted_time": job.created_at.strftime("%b %d, %H:%M"),
-                    "type": "job_created",
-                    "icon": "fa-briefcase",
-                    "color": "#6366f1",
-                    "title": "Job Role Created",
-                    "description": f"Active role: {job.title}"
-                })
-
-        for session in interviews:
-            t = session.updated_at or session.created_at
-            if t and session.status == "completed":
-                activities.append({
-                    "timestamp": t,
-                    "formatted_time": t.strftime("%b %d, %H:%M"),
-                    "type": "interview_completed",
-                    "icon": "fa-comments",
-                    "color": "#10b981",
-                    "title": "AI Interview Completed",
-                    "description": f"{session.interview_mode.capitalize()} mode session completed"
-                })
-
-        for vs in voice_screenings:
-            t = vs.updated_at or vs.created_at
-            if t and vs.status == "completed":
-                # Include the screening decision in the activity description
-                decision = candidate_vs_decision.get(vs.candidate_id, "Not Screened")
-                decision_text = f"Status: {decision}"
-                activities.append({
-                    "timestamp": t,
-                    "formatted_time": t.strftime("%b %d, %H:%M"),
-                    "type": "voice_screening_completed",
-                    "icon": "fa-microphone-lines",
-                    "color": "#8b5cf6" if decision == "Screened" else "#ef4444",
-                    "title": "Voice Screening Completed",
-                    "description": f"Preliminary screening assessment · {decision_text}"
-                })
-
-        # Sort activities descending by real timestamp
-        activities.sort(key=lambda a: a["timestamp"], reverse=True)
-        # Drop raw datetime before JSON serialization
-        recent_activity_list = [
-            {k: v for k, v in a.items() if k != "timestamp"}
-            for a in activities[:7]
-        ]
+            status = cand.hiring_status or "IN_PROGRESS"
+            if status in hiring_stats:
+                hiring_stats[status] += 1
+            else:
+                hiring_stats["IN_PROGRESS"] += 1
+                
+        # We can also return a list of decisions for a table
+        hiring_decisions_list = []
+        for cand in sorted_candidates:
+            hiring_decisions_list.append({
+                "id": cand.id,
+                "name": cand.name or "Unnamed Candidate",
+                "hiring_status": cand.hiring_status or "IN_PROGRESS"
+            })
 
         return {
             "overview": {
@@ -428,7 +388,10 @@ def get_dashboard_analytics():
                 }
             },
             "recent_candidates": recent_candidates,
-            "recent_activity": recent_activity_list
+            "hiring_decisions": {
+                "stats": hiring_stats,
+                "list": hiring_decisions_list
+            }
         }
 
     except Exception as e:
@@ -487,7 +450,15 @@ def get_dashboard_analytics():
                 }
             },
             "recent_candidates": [],
-            "recent_activity": []
+            "hiring_decisions": {
+                "stats": {
+                    "HIRED": 0,
+                    "NOT_SELECTED": 0,
+                    "IN_PROGRESS": 0,
+                    "NOT_EVALUATED": 0
+                },
+                "list": []
+            }
         }
     finally:
         db.close()
