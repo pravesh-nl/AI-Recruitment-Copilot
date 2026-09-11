@@ -302,11 +302,21 @@ def end_interview(session_id: str):
                 # Fallback if the LLM didn't return perfectly parseable JSON
                 summary = {
                     "overall_score": 0,
+                    "recommendation": "Pending / Not Evaluated",
                     "skill_ratings": [],
                     "strengths": [],
                     "areas_for_improvement": [],
                     "overall_feedback": summary_json_str
                 }
+
+            # Normalize recommendation to allowed values only.
+            # This guards against any arbitrary LLM output.
+            raw_rec = summary.get("recommendation", "")
+            score = summary.get("overall_score", 0)
+            allowed = {"Recommended", "Not Recommended"}
+            if raw_rec not in allowed:
+                # Derive deterministically from score if LLM gave unexpected value
+                summary["recommendation"] = "Recommended" if (isinstance(score, (int, float)) and score >= 6.0) else "Not Recommended"
 
             # Update DB
             session.status = "completed"

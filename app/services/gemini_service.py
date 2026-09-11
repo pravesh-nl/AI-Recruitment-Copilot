@@ -175,25 +175,24 @@ def start_interview_simulation(
     skills_str = ", ".join([f"{s.get('name', '')} ({s.get('level', 'Basic')})" for s in job_skills]) if job_skills else "None specified"
     
     prompt = f"""
-You are NovaAI, an expert AI interviewer and recruitment copilot conducting a live interview simulation.
+You are NovaAI, an expert AI interviewer conducting a live {interview_mode} interview for the {job_title} role.
 
-Context:
-Job Position: {job_title}
-Minimum Experience Required: {min_experience} years
-Required Skills: {skills_str}
+Your task:
+1. Greet the candidate by first name only (e.g. "Hello {candidate_name.split()[0]}" — use only their first name).
+2. Introduce yourself in ONE sentence: "I'm NovaAI, your AI Interview Copilot for the {job_title} role."
+3. Immediately ask ONE concise, direct first interview question relevant to the {interview_mode} mode and the required skills ({skills_str}).
 
-Candidate Profile:
-Name: {candidate_name}
-Skills: {candidate_skills}
-Experience: {candidate_experience}
+STRICT rules for the first question:
+- The question itself MUST be 1–2 sentences maximum.
+- Do NOT create long multi-sentence scenarios before asking. Ask directly.
+- Do NOT ask multiple questions in one turn.
+- Do NOT include instructions like "feel free to...", "walk me through...", "take your time...", "explain your assumptions".
+- Do NOT use markdown formatting (no **bold**, no bullet points).
+- The total message (greeting + intro + question) must be 3–5 sentences total.
 
-Interview Mode: {interview_mode}
-
-Instructions:
-You are to start the interview. Greet the candidate warmly by name, briefly introduce yourself as NovaAI, their AI Interview Copilot for this role, and ask the FIRST question.
-The question should align with the {interview_mode} interview mode.
-Do not provide multiple questions. Ask exactly one question and wait for the candidate's response.
-Maintain an engaging, professional, and conversational tone.
+Format example (follow this structure):
+Hello [FirstName], I'm NovaAI, your AI Interview Copilot for the {job_title} role.
+[One direct interview question.]
 """
 
     try:
@@ -262,6 +261,7 @@ Analyze the preceding interview conversation and provide a structured JSON evalu
 You MUST respond with valid JSON matching exactly this structure:
 {{
   "overall_score": <float between 0 and 10>,
+  "recommendation": "<MUST be exactly 'Recommended' if overall_score >= 6.0, otherwise exactly 'Not Recommended'>",
   "skill_ratings": [
     {{
       "skill": "<skill_name>",
@@ -279,6 +279,11 @@ You MUST respond with valid JSON matching exactly this structure:
   ],
   "overall_feedback": "<brief recruiter-friendly summary>"
 }}
+
+IMPORTANT: The 'recommendation' field must be EXACTLY one of these two values:
+- "Recommended" (if overall_score >= 6.0)
+- "Not Recommended" (if overall_score < 6.0)
+Do not use any other value.
 
 Do NOT include markdown block backticks (```json). Just return the JSON object directly. Ensure it is perfectly parseable.
 """

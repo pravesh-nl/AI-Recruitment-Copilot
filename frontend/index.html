@@ -703,12 +703,21 @@
                             <i class="fa-solid fa-microphone"></i> Start Screening
                         </button>
                         <button type="button" id="vsStopBtn" class="btn-secondary" disabled>
-                            <i class="fa-solid fa-stop"></i> Stop
+                            <i class="fa-solid fa-stop"></i> Stop Recording
+                        </button>
+                        <button type="button" id="vsSubmitAnswerBtn" class="btn-primary" disabled
+                            title="Press when you have finished speaking your answer">
+                            <i class="fa-solid fa-paper-plane"></i> Submit Answer
                         </button>
                         <button type="button" id="vsSaveBtn" class="btn-secondary" disabled>
                             <i class="fa-solid fa-floppy-disk"></i> Save &amp; Evaluate
                         </button>
                     </div>
+                    <p class="vs-mic-note" style="margin-top:6px;">
+                        <i class="fa-solid fa-circle-info" style="color:#8b5cf6;"></i>
+                        <strong>Speak your full answer, then press Submit Answer.</strong>
+                        Pausing naturally will <em>not</em> submit — only the Submit Answer button sends your response.
+                    </p>
 
                     <!-- Browser compatibility warning -->
                     <div id="vsBrowserWarning" class="vs-browser-warning" style="display:none;">

@@ -1219,16 +1219,8 @@ async function regenerateSingleQuestion(index) {
 /* ==========================================================
    INITIAL PAGE LOAD
 ========================================================== */
-window.addEventListener("DOMContentLoaded", async () => {
-    await loadStats();
-    await loadLatestCandidate();
-    await loadCandidates();
-    await loadJobListingGrid();
-    await loadJobsIntoDropdown();
-    await loadCandidatesIntoSimDropdown();
-    await loadAtsCandidates();
-
-    // Wire candidate search input
+window.addEventListener("DOMContentLoaded", () => {
+    // Wire candidate search input immediately (no API needed)
     const searchInput = document.getElementById("candidateSearchInput");
     if (searchInput) {
         searchInput.addEventListener("input", () => filterCandidates(searchInput.value));
@@ -1252,14 +1244,24 @@ window.addEventListener("DOMContentLoaded", async () => {
         // Lazy-load if needed
         if (hash === "matchingPage") loadJobsIntoDropdown();
         if (hash === "dashboardPage") {
-            loadDashboardStats();
-            loadPipelineData();
-            loadDashboardInterviewSummary();
+            if (typeof loadDashboard === "function") loadDashboard();
         }
         if (hash === "voiceScreeningPage") {
             loadVsDropdowns();
         }
     }
+
+    // Load dynamic data asynchronously in parallel after UI is painted.
+    // Using Promise.all so all requests fire simultaneously instead of awaiting each one.
+    Promise.all([
+        loadStats(),
+        loadLatestCandidate(),
+        loadCandidates(),
+        loadJobListingGrid(),
+        loadJobsIntoDropdown(),
+        loadCandidatesIntoSimDropdown(),
+        loadAtsCandidates()
+    ]).catch(err => console.error("Startup parallel load error:", err));
 });
 
 /* ==========================================================
@@ -2370,10 +2372,13 @@ async function updateHiringStatus(candidateId, status) {
    Feature completely isolated: failure never affects M1-3.
 ========================================================== */
 
-let vsSessionId    = null;
-let vsActive       = false;
-let vsRecognition  = null;
-let vsTtsEnabled   = true;
+let vsSessionId            = null;
+let vsActive               = false;
+let vsRecognition          = null;
+let vsTtsEnabled           = true;
+let vsAccumulatedTranscript = "";  // accumulated answer text across multiple recognition sessions
+let vsRecording            = false; // true while mic is actively capturing
+let vsSubmitting           = false; // prevents double-submission
 
 /* ----------------------------------------------------------
    Init — wire up VS button events
@@ -2393,8 +2398,12 @@ function initVoiceScreening() {
     const saveBtn  = document.getElementById("vsSaveBtn");
 
     if (startBtn) startBtn.addEventListener("click", startVoiceScreening);
-    if (stopBtn)  stopBtn.addEventListener("click",  stopVoiceScreening);
+    if (stopBtn)  stopBtn.addEventListener("click",  vsToggleRecording);
     if (saveBtn)  saveBtn.addEventListener("click",  saveVoiceScreening);
+
+    // Submit Answer button — sends the accumulated transcript to the AI
+    const submitAnswerBtn = document.getElementById("vsSubmitAnswerBtn");
+    if (submitAnswerBtn) submitAnswerBtn.addEventListener("click", vsSubmitAnswer);
 }
 
 /* ----------------------------------------------------------
@@ -2509,10 +2518,15 @@ async function startVoiceScreening() {
         vsSessionId = data.session_id;
         vsActive    = true;
 
+        // Reset answer accumulator for fresh session
+        vsAccumulatedTranscript = "";
+        vsRecording             = false;
+        vsSubmitting            = false;
+
         // Update control state
         if (startBtn) { startBtn.disabled = true; startBtn.innerHTML = `<i class="fa-solid fa-circle-check"></i> In Progress`; }
         const stopBtn = document.getElementById("vsStopBtn");
-        if (stopBtn) stopBtn.disabled = false;
+        if (stopBtn) { stopBtn.disabled = false; stopBtn.innerHTML = `<i class="fa-solid fa-stop"></i> Stop Recording`; }
         document.getElementById("vsCandidate").disabled = true;
         document.getElementById("vsJob").disabled = true;
 
@@ -2521,12 +2535,14 @@ async function startVoiceScreening() {
         vsAppendTranscript("ai", data.first_question);
 
         // Speak it if TTS enabled, then start listening
+        vsRecording = true;
         if (vsTtsEnabled) {
-            vsSpeak(data.first_question, () => { if (vsActive) vsStartListening(); });
+            vsSpeak(data.first_question, () => { if (vsActive && vsRecording) vsStartListening(); });
         } else {
             vsStartListening();
         }
 
+        vsUpdateAnswerControls();
         setVsStatus("recording", "Listening...");
         showToast(`Voice screening started for ${data.candidate_name}.`);
 
@@ -2539,60 +2555,92 @@ async function startVoiceScreening() {
 }
 
 /* ----------------------------------------------------------
-   Start browser SpeechRecognition
-   — Restarts automatically on silence / transient errors
-   — Stops permanently on microphone-denied error
+   Start browser SpeechRecognition for one capture session.
+
+   KEY DESIGN (fix for auto-submit on pause):
+   - recognition.onend does NOT submit the answer.
+   - It only appends captured text to vsAccumulatedTranscript and
+     restarts recognition so the candidate can keep speaking.
+   - The answer is only sent to the backend when the candidate
+     explicitly clicks "Submit Answer" (vsSubmitAnswer).
+   - A natural 2-3 second pause just restarts the recogniser;
+     no submission occurs.
+   - Stops permanently on microphone-denied error.
 ---------------------------------------------------------- */
 function vsStartListening() {
-    if (!vsActive) return;
+    if (!vsActive || !vsRecording) return;
 
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRec) return;
 
+    // Abort any previous recogniser before creating a new one
+    if (vsRecognition) {
+        try { vsRecognition.abort(); } catch (e) {}
+        vsRecognition = null;
+    }
+
     vsRecognition = new SpeechRec();
     vsRecognition.lang            = "en-US";
-    vsRecognition.continuous      = false;
+    vsRecognition.continuous      = false;  // browser still stops after ~2-3 s of silence
     vsRecognition.interimResults  = true;
 
-    let finalText = "";
+    // Local text captured in this recognition session (not yet appended to accumulator)
+    let sessionFinal   = "";
+    let sessionInterim = "";
 
     vsRecognition.onstart = () => {
         setVsStatus("recording", "Listening... Speak now.");
     };
 
     vsRecognition.onresult = (event) => {
-        let interim = "";
+        sessionInterim = "";
         for (let i = event.resultIndex; i < event.results.length; i++) {
             if (event.results[i].isFinal) {
-                finalText += event.results[i][0].transcript;
+                sessionFinal += event.results[i][0].transcript;
             } else {
-                interim += event.results[i][0].transcript;
+                sessionInterim += event.results[i][0].transcript;
             }
         }
-        // Show live interim text
+
+        // Show accumulated + current session final + current interim
         const interimEl = document.getElementById("vsInterimText");
-        if (interimEl) interimEl.textContent = interim ? `"${interim}..."` : "";
+        if (interimEl) {
+            const displayText = (vsAccumulatedTranscript + sessionFinal + sessionInterim).trim();
+            interimEl.textContent = displayText ? `"${displayText}..."` : "";
+        }
+
+        vsUpdateAnswerControls();
     };
 
-    vsRecognition.onend = async () => {
-        if (!vsActive) return;
+    vsRecognition.onend = () => {
+        // ── IMPORTANT: onend is NOT a submission trigger ──
+        // The browser stopped capturing (pause, silence, tab focus change).
+        // We accumulate the text captured so far and restart automatically.
 
-        if (finalText.trim()) {
-            const spoken = finalText.trim();
-            finalText = "";
+        if (sessionFinal.trim()) {
+            if (vsAccumulatedTranscript && !vsAccumulatedTranscript.endsWith(" ")) {
+                vsAccumulatedTranscript += " ";
+            }
+            vsAccumulatedTranscript += sessionFinal.trim();
+            sessionFinal = "";
+        }
 
-            // Clear interim display
-            const interimEl = document.getElementById("vsInterimText");
-            if (interimEl) interimEl.textContent = "";
+        // Show accumulated text in interim display
+        const interimEl = document.getElementById("vsInterimText");
+        if (interimEl) {
+            interimEl.textContent = vsAccumulatedTranscript
+                ? `"${vsAccumulatedTranscript}..."`
+                : "";
+        }
 
-            vsAppendTranscript("candidate", spoken);
-            setVsStatus("processing", "Processing response...");
+        vsUpdateAnswerControls();
 
-            await vsSendResponse(spoken);
-        } else {
-            // No speech — wait and try again
-            setVsStatus("recording", "No speech detected. Listening again...");
-            setTimeout(() => { if (vsActive) vsStartListening(); }, 1200);
+        // Restart recognition so candidate can keep speaking
+        if (vsActive && vsRecording) {
+            setVsStatus("recording", "Paused — listening again...");
+            setTimeout(() => {
+                if (vsActive && vsRecording) vsStartListening();
+            }, 400);
         }
     };
 
@@ -2601,18 +2649,25 @@ function vsStartListening() {
         if (event.error === "not-allowed" || event.error === "service-not-allowed") {
             showToast("Microphone access denied. Please allow microphone in browser settings.", true);
             setVsStatus("", "Microphone denied");
-            vsActive = false;
+            vsActive    = false;
+            vsRecording = false;
+            vsUpdateAnswerControls();
             const stopBtn = document.getElementById("vsStopBtn");
             const saveBtn = document.getElementById("vsSaveBtn");
-            if (stopBtn) stopBtn.disabled = true;
+            if (stopBtn) { stopBtn.disabled = true; stopBtn.innerHTML = `<i class="fa-solid fa-stop"></i> Stop Recording`; }
             if (saveBtn && vsSessionId) saveBtn.disabled = false;
         } else if (event.error === "no-speech") {
-            setTimeout(() => { if (vsActive) vsStartListening(); }, 1200);
+            // Natural — browser stopped because no sound; restart quietly
+            if (vsActive && vsRecording) {
+                setTimeout(() => { if (vsActive && vsRecording) vsStartListening(); }, 600);
+            }
         } else if (event.error === "network") {
             showToast("Network error during speech recognition. Retrying...", true);
-            setTimeout(() => { if (vsActive) vsStartListening(); }, 2500);
+            setTimeout(() => { if (vsActive && vsRecording) vsStartListening(); }, 2500);
+        } else if (event.error === "aborted") {
+            // Intentional abort (e.g. when candidate clicks Stop Recording) — ignore
         } else {
-            setTimeout(() => { if (vsActive) vsStartListening(); }, 2000);
+            setTimeout(() => { if (vsActive && vsRecording) vsStartListening(); }, 2000);
         }
     };
 
@@ -2620,8 +2675,92 @@ function vsStartListening() {
         vsRecognition.start();
     } catch (startErr) {
         console.warn("SpeechRecognition.start() error:", startErr);
-        setTimeout(() => { if (vsActive) vsStartListening(); }, 1500);
+        setTimeout(() => { if (vsActive && vsRecording) vsStartListening(); }, 1500);
     }
+}
+
+/* ----------------------------------------------------------
+   Toggle mic on/off without ending the session or submitting.
+   "Stop Recording" pauses capture; "Resume Recording" restarts.
+---------------------------------------------------------- */
+function vsToggleRecording() {
+    if (!vsActive) return;
+
+    const stopBtn = document.getElementById("vsStopBtn");
+
+    if (vsRecording) {
+        // PAUSE recording — stop mic, keep accumulated text, do NOT submit
+        vsRecording = false;
+        if (vsRecognition) {
+            try { vsRecognition.abort(); } catch (e) {}
+            vsRecognition = null;
+        }
+        setVsStatus("recording", "Recording paused — click to resume.");
+        if (stopBtn) stopBtn.innerHTML = `<i class="fa-solid fa-microphone"></i> Resume Recording`;
+        vsUpdateAnswerControls();
+    } else {
+        // RESUME recording
+        vsRecording = true;
+        setVsStatus("recording", "Listening... Speak now.");
+        if (stopBtn) stopBtn.innerHTML = `<i class="fa-solid fa-stop"></i> Stop Recording`;
+        vsUpdateAnswerControls();
+        vsStartListening();
+    }
+}
+
+/* ----------------------------------------------------------
+   Update Submit Answer button state based on accumulated transcript.
+---------------------------------------------------------- */
+function vsUpdateAnswerControls() {
+    const submitBtn = document.getElementById("vsSubmitAnswerBtn");
+    if (!submitBtn) return;
+    const hasText = vsAccumulatedTranscript.trim().length > 0;
+    submitBtn.disabled = !hasText || vsSubmitting || !vsActive;
+}
+
+/* ----------------------------------------------------------
+   Explicitly submit the accumulated answer to the backend.
+   This is the ONLY path that sends the answer — never automatic.
+---------------------------------------------------------- */
+async function vsSubmitAnswer() {
+    const answer = vsAccumulatedTranscript.trim();
+    if (!answer) {
+        showToast("No speech captured yet. Please speak your answer first.", true);
+        return;
+    }
+    if (!vsSessionId || !vsActive) return;
+    if (vsSubmitting) return;  // prevent double-click
+
+    vsSubmitting = true;
+    vsUpdateAnswerControls();
+
+    // Stop mic while AI is processing
+    vsRecording = false;
+    if (vsRecognition) {
+        try { vsRecognition.abort(); } catch (e) {}
+        vsRecognition = null;
+    }
+
+    // Clear interim display
+    const interimEl = document.getElementById("vsInterimText");
+    if (interimEl) interimEl.textContent = "";
+
+    // Snapshot and reset accumulator for next answer
+    const answerToSend = answer;
+    vsAccumulatedTranscript = "";
+
+    // Append the answer to the transcript panel
+    vsAppendTranscript("candidate", answerToSend);
+    setVsStatus("processing", "Processing response...");
+
+    const stopBtn = document.getElementById("vsStopBtn");
+    if (stopBtn) { stopBtn.disabled = true; stopBtn.innerHTML = `<i class="fa-solid fa-stop"></i> Stop Recording`; }
+
+    await vsSendResponse(answerToSend);
+
+    vsSubmitting = false;
+    if (stopBtn && vsActive) { stopBtn.disabled = false; }
+    vsUpdateAnswerControls();
 }
 
 /* ----------------------------------------------------------
@@ -2643,19 +2782,28 @@ async function vsSendResponse(spokenText) {
         vsSetCurrentQuestion(nextQ);
         vsAppendTranscript("ai", nextQ);
 
+        // After AI responds, re-enable recording so candidate can answer next question
+        vsRecording = true;
+        const stopBtn = document.getElementById("vsStopBtn");
+        if (stopBtn) { stopBtn.disabled = false; stopBtn.innerHTML = `<i class="fa-solid fa-stop"></i> Stop Recording`; }
+
         // Speak next question, then resume listening
         if (vsTtsEnabled) {
-            vsSpeak(nextQ, () => { if (vsActive) vsStartListening(); });
+            vsSpeak(nextQ, () => { if (vsActive && vsRecording) vsStartListening(); });
         } else {
-            if (vsActive) vsStartListening();
+            if (vsActive && vsRecording) vsStartListening();
         }
         setVsStatus("recording", "Listening...");
 
     } catch (err) {
         console.error("VS respond error:", err);
-        showToast(err.message || "AI failed to generate next question. Listening again...", true);
-        setVsStatus("recording", "Error — listening again...");
-        setTimeout(() => { if (vsActive) vsStartListening(); }, 2500);
+        showToast(err.message || "AI failed to generate next question. Try submitting again.", true);
+        setVsStatus("recording", "Error — try submitting again or stop recording.");
+        // Re-enable recording on error so candidate can retry
+        vsRecording = true;
+        const stopBtn = document.getElementById("vsStopBtn");
+        if (stopBtn) { stopBtn.disabled = false; stopBtn.innerHTML = `<i class="fa-solid fa-stop"></i> Stop Recording`; }
+        vsUpdateAnswerControls();
     }
 }
 
@@ -2682,18 +2830,22 @@ function vsSpeak(text, onEndCallback) {
    Stop screening
 ---------------------------------------------------------- */
 function stopVoiceScreening() {
-    vsActive = false;
+    vsActive     = false;
+    vsRecording  = false;
+    vsSubmitting = false;
 
     if (vsRecognition) {
-        try { vsRecognition.stop(); } catch (e) {}
+        try { vsRecognition.abort(); } catch (e) {}
         vsRecognition = null;
     }
     if (window.speechSynthesis) window.speechSynthesis.cancel();
 
-    const stopBtn = document.getElementById("vsStopBtn");
-    const saveBtn = document.getElementById("vsSaveBtn");
-    if (stopBtn) stopBtn.disabled = true;
+    const stopBtn       = document.getElementById("vsStopBtn");
+    const saveBtn       = document.getElementById("vsSaveBtn");
+    const submitAnswBtn = document.getElementById("vsSubmitAnswerBtn");
+    if (stopBtn) { stopBtn.disabled = true; stopBtn.innerHTML = `<i class="fa-solid fa-stop"></i> Stop Recording`; }
     if (saveBtn) saveBtn.disabled = false;
+    if (submitAnswBtn) submitAnswBtn.disabled = true;
 
     // Clear interim
     const interimEl = document.getElementById("vsInterimText");
@@ -2929,19 +3081,24 @@ function vsDisplayAssessment(assessment) {
    Reset voice screening state
 ---------------------------------------------------------- */
 function vsReset() {
-    vsSessionId   = null;
-    vsActive      = false;
+    vsSessionId             = null;
+    vsActive                = false;
+    vsRecording             = false;
+    vsSubmitting            = false;
+    vsAccumulatedTranscript = "";
 
-    if (vsRecognition) { try { vsRecognition.stop(); } catch(e) {} vsRecognition = null; }
+    if (vsRecognition) { try { vsRecognition.abort(); } catch(e) {} vsRecognition = null; }
     if (window.speechSynthesis) window.speechSynthesis.cancel();
 
-    const startBtn = document.getElementById("vsStartBtn");
-    const stopBtn  = document.getElementById("vsStopBtn");
-    const saveBtn  = document.getElementById("vsSaveBtn");
+    const startBtn      = document.getElementById("vsStartBtn");
+    const stopBtn       = document.getElementById("vsStopBtn");
+    const saveBtn       = document.getElementById("vsSaveBtn");
+    const submitAnswBtn = document.getElementById("vsSubmitAnswerBtn");
 
     if (startBtn) { startBtn.disabled = false; startBtn.innerHTML = `<i class="fa-solid fa-microphone"></i> Start Screening`; }
-    if (stopBtn)  stopBtn.disabled = true;
+    if (stopBtn)  { stopBtn.disabled = true; stopBtn.innerHTML = `<i class="fa-solid fa-stop"></i> Stop Recording`; }
     if (saveBtn)  { saveBtn.disabled = true; saveBtn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Save Screening`; }
+    if (submitAnswBtn) submitAnswBtn.disabled = true;
 
     const candSel = document.getElementById("vsCandidate");
     const jobSel  = document.getElementById("vsJob");
@@ -2965,17 +3122,9 @@ function vsReset() {
 ========================================================== */
 
 window.addEventListener("DOMContentLoaded", () => {
-    // Init voice screening button handlers
+    // Init voice screening button handlers (wires Submit Answer, Stop Recording toggle, etc.)
     if (typeof initVoiceScreening === "function") {
         initVoiceScreening();
-    }
-
-    // Dashboard — load data when navigating to it
-    const dashMenuItem = document.querySelector('[data-page="dashboardPage"]');
-    if (dashMenuItem) {
-        dashMenuItem.addEventListener("click", () => {
-            loadDashboard();
-        });
     }
 
     // Refresh Dashboard button
@@ -2987,24 +3136,15 @@ window.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Voice Screening — populate dropdowns when navigating to it
-    const vsMenuItem = document.querySelector('[data-page="voiceScreeningPage"]');
-    if (vsMenuItem) {
-        vsMenuItem.addEventListener("click", () => {
-            loadVsDropdowns();
-        });
-    }
-
     // Hash navigation support on page reload
     const currentHash = window.location.hash.replace("#", "");
     if (currentHash && document.getElementById(currentHash)) {
         const targetMenu = document.querySelector(`[data-page="${currentHash}"]`);
         if (targetMenu) targetMenu.click();
     } else {
-        // Default to Dashboard
-        loadDashboard();
+        // Default to Dashboard — defer so the UI paints before the API request fires
+        setTimeout(() => { if (typeof loadDashboard === "function") loadDashboard(); }, 0);
     }
-
-    // Pre-populate dropdowns
-    loadVsDropdowns();
+    // NOTE: loadVsDropdowns() is called lazily when the user navigates to voiceScreeningPage
+    // (the menu item listener is already wired in the sidebar navigation block above)
 });
