@@ -1,0 +1,36 @@
+{
+    "name": "Ishita Rao",
+    "name_source": "Resume Header",
+    "email": "ishita.rao@email.com",
+    "phone": "+91 9765432180",
+    "skills": [
+        "Data Cleaning",
+        "Data Visualization",
+        "Excel",
+        "Matplotlib",
+        "MySQL",
+        "NumPy",
+        "Pandas",
+        "Power BI",
+        "Python",
+        "SQL",
+        "Statistics",
+        "Tableau"
+    ],
+    "education": [
+        "B.Tech CSE, Mumbai Institute of Technology | 2023\u20132027 | CGPA 8.8/10"
+    ],
+    "projects": [
+        "products."
+    ],
+    "certifications": [
+        "Google Data Analytics Professional Certificate; Microsoft Power BI Data Analyst; SQL for Data",
+        "Science"
+    ],
+    "experience": [
+        "Data Analyst Intern, InsightWorks Analytics | May\u2013Jul 2026 \u2014 cleaned datasets, wrote SQL",
+        "queries, automated Excel reports and built Power BI dashboards.",
+        "Google Data Analytics Professional Certificate; Microsoft Power BI Data Analyst; SQL for Data",
+        "Experience"
+    ]
+}

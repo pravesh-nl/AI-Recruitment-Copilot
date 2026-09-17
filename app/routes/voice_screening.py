@@ -125,6 +125,19 @@ def respond_to_screening(session_id: str, request: RespondRequest):
         conversation = json.loads(session.transcript)
         conversation.append({"role": "candidate", "content": candidate_text})
 
+        # Count AI messages to determine the current question number
+        ai_count = sum(1 for msg in conversation if msg["role"] == "ai")
+
+        if ai_count >= 5:
+            # Reached limit! Do NOT generate a 6th question.
+            session.transcript = json.dumps(conversation)
+            db.commit()
+            return {
+                "next_question": "Thank you. The screening is now complete.",
+                "candidate_turns": sum(1 for t in conversation if t["role"] == "candidate"),
+                "screening_completed": True
+            }
+
         job_skills = json.loads(job.skills or "[]") if job else []
 
         # Generate next AI question — save transcript first even on AI failure
@@ -141,7 +154,8 @@ def respond_to_screening(session_id: str, request: RespondRequest):
             db.commit()
             return {
                 "next_question": next_question,
-                "candidate_turns": sum(1 for t in conversation if t["role"] == "candidate")
+                "candidate_turns": sum(1 for t in conversation if t["role"] == "candidate"),
+                "screening_completed": False
             }
         except Exception as ai_err:
             # Save transcript progress even on AI failure

@@ -4,7 +4,7 @@
    All endpoints unchanged. Only UI rendering redesigned.
 ========================================================== */
 
-const API = "https://ai-driven-smart-hiring-platform-with-2q4r.onrender.com";
+const API = "http://127.0.0.1:8000";
 
 /* ----------------------------------------------------------
    STATE
@@ -91,6 +91,7 @@ const interviewChat      = document.getElementById("interviewChat");
 ---------------------------------------------------------- */
 let currentSessionId  = null;   // UUID returned by /interview/start
 let simulationActive  = false;  // guards the send/end buttons
+let aiQuestionCount   = 1;
 
 /* ----------------------------------------------------------
    TOAST
@@ -403,9 +404,114 @@ function filterCandidates(query) {
 /* ----------------------------------------------------------
    Show Candidate Profile Modal
 ---------------------------------------------------------- */
-function showCandidate(candidate) {
+async function showCandidate(candidateOrId, jobId = null) {
     modal.classList.add("open");
     modal.style.display = "flex";
+    
+    let candidate = candidateOrId;
+    if (typeof candidateOrId === "number" || typeof candidateOrId === "string") {
+        try {
+            const cRes = await fetch(`${API}/candidate/${candidateOrId}`);
+            if (cRes.ok) candidate = await cRes.json();
+        } catch (e) {
+            console.error("Failed to fetch candidate details", e);
+            return;
+        }
+    }
+    
+    // Show loading state while fetching evaluations
+    modalBody.innerHTML = `
+        <h2 style="color:var(--primary);margin-bottom:20px;font-size:20px;">
+            <i class="fa-solid fa-user" style="margin-right:10px;"></i>Candidate Profile
+        </h2>
+        <div style="text-align: center; padding: 20px;">
+            <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; color: var(--primary);"></i>
+            <p style="margin-top: 10px; color: var(--text-muted);">Loading evaluation data...</p>
+        </div>
+    `;
+
+    let evals = null;
+    try {
+        const t = Date.now();
+        const fetchUrl = jobId 
+            ? `${API}/candidate/${candidate.id}/evaluations?job_id=${jobId}&t=${t}`
+            : `${API}/candidate/${candidate.id}/evaluations?t=${t}`;
+        const res = await fetch(fetchUrl, { cache: "no-store" });
+        if (res.ok) {
+            evals = await res.json();
+        }
+    } catch (e) {
+        console.error("Failed to fetch evaluations", e);
+    }
+
+    let aiRecDisplay = "Pending / Not Evaluated";
+    let aiInterviewStatus = "Interview Not Done";
+    let vsStatusDisplay = "Pending / Not Evaluated";
+
+    if (evals) {
+        if (evals.ai_interview) {
+            aiRecDisplay = evals.ai_interview.recommendation || "Pending / Not Evaluated";
+            aiInterviewStatus = evals.ai_interview.interview_status || "Interview Not Done";
+        }
+        if (evals.voice_screening) {
+            vsStatusDisplay = evals.voice_screening.status || "Pending / Not Evaluated";
+        }
+    }
+
+    // Colors for AI
+    let aiColor = "var(--text-muted)";
+    if (aiRecDisplay === "Recommended") aiColor = "#10b981";
+    else if (aiRecDisplay === "Not Recommended") aiColor = "#ef4444";
+
+    // Colors for VS
+    let vsColor = "var(--text-muted)";
+    if (vsStatusDisplay === "Screened") vsColor = "#10b981";
+    else if (vsStatusDisplay === "Not Screened") vsColor = "#ef4444";
+
+    const hiringStatusHtml = formatHiringStatus(candidate.hiring_status);
+    const hiringStatusClass = getHiringStatusClass(candidate.hiring_status);
+
+    const evaluationSection = `
+        <hr class="divider">
+        <h3 style="color:var(--primary);font-size:16px;margin-bottom:15px;">
+            Candidate Evaluation & Hiring Decision
+        </h3>
+        
+        <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px; font-size: 14px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <strong>AI Interview</strong>
+                <span style="font-weight:600; color:${aiColor};">${escapeHTML(aiRecDisplay.toUpperCase())}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:12px; border-bottom:1px solid #e2e8f0; padding-bottom:8px; font-size: 12px; color: var(--text-muted);">
+                <span>Interview Status:</span>
+                <span>${escapeHTML(aiInterviewStatus)}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:12px; border-bottom:1px solid #e2e8f0; padding-bottom:8px;">
+                <strong>Voice Screening</strong>
+                <span style="font-weight:600; color:${vsColor};">${escapeHTML(vsStatusDisplay.toUpperCase())}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <strong>Recruiter Hiring Decision</strong>
+                <span id="modalHiringStatus" class="status ${hiringStatusClass}" style="font-weight:600;">${hiringStatusHtml}</span>
+            </div>
+        </div>
+
+        <div style="display:flex; flex-wrap:wrap; gap:10px;">
+            <button type="button" class="btn-primary" onclick="updateHiringStatus(${candidate.id}, 'HIRED')" style="background-color:#10b981; border-color:#10b981;">
+                <i class="fa-solid fa-check"></i> Hire Candidate
+            </button>
+            <button type="button" class="btn-secondary" onclick="updateHiringStatus(${candidate.id}, 'NOT_SELECTED')" style="color:#ef4444; border-color:#ef4444; background:white;">
+                <i class="fa-solid fa-xmark"></i> Not Selected
+            </button>
+            <button type="button" class="btn-secondary" onclick="updateHiringStatus(${candidate.id}, 'IN_PROGRESS')" style="color:#f59e0b; border-color:#f59e0b; background:white;">
+                <i class="fa-solid fa-spinner"></i> In Progress
+            </button>
+            <button type="button" class="btn-secondary" onclick="updateHiringStatus(${candidate.id}, 'NOT_EVALUATED')" style="color:var(--text-muted); border-color:var(--text-muted); background:white;">
+                <i class="fa-solid fa-rotate-left"></i> Reset
+            </button>
+        </div>
+    `;
+
     modalBody.innerHTML = `
         <h2 style="color:var(--primary);margin-bottom:20px;font-size:20px;">
             <i class="fa-solid fa-user" style="margin-right:10px;"></i>Candidate Profile
@@ -421,19 +527,7 @@ function showCandidate(candidate) {
             <p><strong>Certifications:</strong> ${safeParseJSON(candidate.certifications, []).join(", ") || "—"}</p>
         </div>
         
-        <hr class="divider">
-        <h3 style="color:var(--primary);font-size:16px;margin-bottom:10px;"><i class="fa-solid fa-gavel"></i> Recruiter Decision</h3>
-        <div style="margin-bottom:15px; font-size:14px;">
-            <strong>Current Status:</strong> <span id="modalHiringStatus" class="status ${getHiringStatusClass(candidate.hiring_status)}">${formatHiringStatus(candidate.hiring_status)}</span>
-        </div>
-        <div style="display:flex; gap:10px;">
-            <button type="button" class="btn-primary" onclick="updateHiringStatus(${candidate.id}, 'HIRED')" style="background-color:#10b981; border-color:#10b981;">
-                <i class="fa-solid fa-check"></i> Hire Candidate
-            </button>
-            <button type="button" class="btn-secondary" onclick="updateHiringStatus(${candidate.id}, 'NOT_SELECTED')" style="color:#ef4444; border-color:#ef4444; background:white;">
-                <i class="fa-solid fa-xmark"></i> Not Selected
-            </button>
-        </div>
+        ${evaluationSection}
         `;
 
 }
@@ -878,6 +972,14 @@ function displayMatchingResults(results, jobId) {
             >
                 <i class="fa-solid fa-chart-bar"></i>
                 View Skill Gap Analysis
+            </button>
+            <button
+                class="view-match-btn"
+                style="margin-top:8px; background:var(--primary); color:white; border:none;"
+                onclick="showCandidate(${candidate.candidate_id}, ${jobId})"
+            >
+                <i class="fa-solid fa-user"></i>
+                View Candidate Profile
             </button>`;
 
         matchingResults.appendChild(card);
@@ -1251,17 +1353,24 @@ window.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // Load dynamic data asynchronously in parallel after UI is painted.
-    // Using Promise.all so all requests fire simultaneously instead of awaiting each one.
-    Promise.all([
-        loadStats(),
-        loadLatestCandidate(),
-        loadCandidates(),
-        loadJobListingGrid(),
-        loadJobsIntoDropdown(),
-        loadCandidatesIntoSimDropdown(),
-        loadAtsCandidates()
-    ]).catch(err => console.error("Startup parallel load error:", err));
+    // Load dynamic data sequentially to prevent SQLite database locks and UI blocking.
+    // Concurrent requests can overwhelm local SQLite databases.
+    async function initializeData() {
+        try {
+            await loadStats();
+            await loadLatestCandidate();
+            await loadJobsIntoDropdown();
+            await loadJobListingGrid();
+            await loadCandidates();
+            await loadCandidatesIntoSimDropdown();
+            await loadAtsCandidates();
+        } catch (err) {
+            console.error("Startup load error:", err);
+        }
+    }
+    
+    // Start data load without blocking DOMContentLoaded
+    initializeData();
 });
 
 /* ==========================================================
@@ -1357,6 +1466,10 @@ startInterviewBtn.addEventListener("click", async () => {
         // Store session and activate chat
         currentSessionId = data.session_id;
         simulationActive = true;
+        
+        aiQuestionCount = 1;
+        document.getElementById("aiInterviewCounter").style.display = "block";
+        document.getElementById("aiQuestionCurrent").textContent = aiQuestionCount;
 
         interviewChat.innerHTML = "";
         appendChatMessage("ai", data.initial_message);
@@ -1434,6 +1547,17 @@ async function sendSimMessage() {
         // Replace typing indicator with real AI response
         const typingEl = document.getElementById(typingId);
         if (typingEl) typingEl.remove();
+
+        if (data.interview_completed) {
+            appendChatMessage("ai", data.ai_response);
+            document.getElementById("aiInterviewCounter").style.display = "none";
+            if (endInterviewBtn && !endInterviewBtn.disabled) endInterviewBtn.click();
+            return;
+        }
+
+        aiQuestionCount++;
+        document.getElementById("aiQuestionCurrent").textContent = aiQuestionCount;
+
         appendChatMessage("ai", data.ai_response);
 
     } catch (error) {
@@ -2378,6 +2502,7 @@ let vsRecognition          = null;
 let vsTtsEnabled           = true;
 let vsAccumulatedTranscript = "";  // accumulated answer text across multiple recognition sessions
 let vsRecording            = false; // true while mic is actively capturing
+let vsQuestionCount        = 1;
 let vsSubmitting           = false; // prevents double-submission
 
 /* ----------------------------------------------------------
@@ -2517,6 +2642,10 @@ async function startVoiceScreening() {
 
         vsSessionId = data.session_id;
         vsActive    = true;
+
+        vsQuestionCount = 1;
+        document.getElementById("vsQuestionCounter").style.display = "block";
+        document.getElementById("vsQuestionCurrent").textContent = vsQuestionCount;
 
         // Reset answer accumulator for fresh session
         vsAccumulatedTranscript = "";
@@ -2777,6 +2906,18 @@ async function vsSendResponse(spokenText) {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Failed to get next question");
+
+        if (data.screening_completed) {
+            vsSetCurrentQuestion(data.next_question);
+            vsAppendTranscript("ai", data.next_question);
+            document.getElementById("vsQuestionCounter").style.display = "none";
+            const saveBtn = document.getElementById("vsSaveBtn");
+            if (saveBtn && vsActive) saveBtn.click();
+            return;
+        }
+
+        vsQuestionCount++;
+        document.getElementById("vsQuestionCurrent").textContent = vsQuestionCount;
 
         const nextQ = data.next_question;
         vsSetCurrentQuestion(nextQ);

@@ -1,0 +1,21 @@
+Ishita Rao
+Email
+ishita.rao@email.com
+Phone
++91 9765432180
+Education
+B.Tech CSE, Mumbai Institute of Technology | 2023–2027 | CGPA 8.8/10
+Skills
+Python, SQL, Excel, Power BI, Tableau, Pandas, NumPy, Matplotlib, Statistics, Data Cleaning,
+Data Visualization, MySQL
+Projects
+Sales Performance Dashboard — Python, SQL and Power BI analysis of revenue, regions and
+products.
+Customer Churn Analysis — Pandas and SQL analysis of customer behavior and churn patterns.
+Certifications
+Google Data Analytics Professional Certificate; Microsoft Power BI Data Analyst; SQL for Data
+Science
+Experience
+Data Analyst Intern, InsightWorks Analytics | May–Jul 2026 — cleaned datasets, wrote SQL
+queries, automated Excel reports and built Power BI dashboards.
+

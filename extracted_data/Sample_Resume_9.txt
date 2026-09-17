@@ -1,0 +1,22 @@
+Vikram Desai
+Email
+vikram.desai@email.com
+Phone
++91 9823456712
+Education
+B.Tech CSE, Western Institute of Technology | 2024–2028 | CGPA 8.6/10
+Skills
+SQL, Python, Excel, Power BI, Tableau, Pandas, NumPy, MySQL, PostgreSQL, Statistics, Data
+Analysis, Data Visualization
+Projects
+E-Commerce Analytics — SQL/Python analysis of orders, customers and products with a Power BI
+dashboard.
+Student Performance Analysis — cleaned academic data and visualized performance trends using
+Python and Excel.
+Certifications
+IBM Data Analyst Professional Certificate; Microsoft Power BI Data Analyst; SQL Intermediate —
+HackerRank
+Experience
+Business Data Analyst Intern, DataBridge Solutions | Jun–Aug 2026 — analyzed operational data,
+prepared KPI reports, created Excel dashboards and performed SQL-based analysis.
+

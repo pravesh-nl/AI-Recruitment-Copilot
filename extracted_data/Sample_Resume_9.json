@@ -1,0 +1,38 @@
+{
+    "name": "Vikram Desai",
+    "name_source": "Resume Header",
+    "email": "vikram.desai@email.com",
+    "phone": "+91 9823456712",
+    "skills": [
+        "Analysis",
+        "Data",
+        "Data Visualization",
+        "Excel",
+        "MySQL",
+        "NumPy",
+        "Pandas",
+        "PostgreSQL",
+        "Power BI",
+        "Python",
+        "SQL",
+        "Statistics",
+        "Tableau"
+    ],
+    "education": [
+        "B.Tech CSE, Western Institute of Technology | 2024\u20132028 | CGPA 8.6/10"
+    ],
+    "projects": [
+        "dashboard.",
+        "Python and Excel."
+    ],
+    "certifications": [
+        "IBM Data Analyst Professional Certificate; Microsoft Power BI Data Analyst; SQL Intermediate \u2014",
+        "HackerRank"
+    ],
+    "experience": [
+        "Business Data Analyst Intern, DataBridge Solutions | Jun\u2013Aug 2026 \u2014 analyzed operational data,",
+        "prepared KPI reports, created Excel dashboards and performed SQL-based analysis.",
+        "IBM Data Analyst Professional Certificate; Microsoft Power BI Data Analyst; SQL Intermediate \u2014",
+        "Experience"
+    ]
+}

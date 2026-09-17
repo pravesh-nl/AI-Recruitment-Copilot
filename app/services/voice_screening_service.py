@@ -27,6 +27,8 @@ import json
 from dotenv import load_dotenv
 from groq import Groq
 
+from app.services.gemini_service import _count_meaningful_answers
+
 load_dotenv(override=True)
 
 # Reuse the same Groq client pattern as gemini_service.py
@@ -210,6 +212,24 @@ def generate_screening_assessment(
     if not transcript_text.strip():
         return _fallback_assessment("No transcript available — screening may have ended before any responses were recorded.")
 
+    meaningful_count = _count_meaningful_answers(transcript)
+    total_q = 5
+
+    if meaningful_count == 0:
+        return {
+            "overall_score": 0.0,
+            "communication_score": 0.0,
+            "technical_score": 0.0,
+            "strengths": [],
+            "areas_for_improvement": ["Communication", "Engagement"],
+            "recommendation": "Needs Further Evaluation",
+            "overall_feedback": "The candidate did not provide any meaningful responses during the voice screening. Insufficient evidence to evaluate.",
+            "answer_naturalness": "Unable to Analyze",
+            "naturalness_feedback": "Assessment could not be completed — naturalness analysis unavailable due to lack of meaningful answers.",
+            "questions_answered": 0,
+            "total_questions": 5
+        }
+
     prompt = (
         f"You are NovaAI evaluating a PRELIMINARY VOICE SCREENING session for the {job_title} role.\n"
         f"Candidate: {candidate_name}\n"
@@ -224,6 +244,11 @@ def generate_screening_assessment(
         "Do NOT penalise candidates for lack of technical depth — this is a communication screen.\n"
         "═══════════════════════════════════════════════════════\n\n"
         "Evaluate the candidate ONLY on these preliminary screening criteria:\n"
+        "**CRITICAL INSTRUCTION FOR SCORING (GENUINE ASSESSMENT):**\n"
+        f"- The candidate provided meaningful answers to {meaningful_count} out of {total_q} questions.\n"
+        "- A candidate who provided very few meaningful answers must NOT receive high scores, regardless of completing the session.\n"
+        "- Do NOT reject a legitimate, concise answer merely because it is short.\n"
+        "- Base scores strictly on evidence of communication and professionalism from the actual transcript.\n"
         "1. Communication Skills (→ communication_score): Spoken clarity, fluency, articulation, "
         "active listening, and ability to express ideas clearly.\n"
         "2. Confidence & Professionalism: Self-assurance, professional tone, composure, "
@@ -254,7 +279,9 @@ def generate_screening_assessment(
         '  "overall_feedback": "<recruiter-friendly 2-3 sentence summary of spoken communication, '
         'confidence, and preliminary professional suitability — NOT technical skills depth>",\n'
         '  "answer_naturalness": "<Natural | Possibly Scripted | Highly Scripted / Potentially AI-Assisted | Unable to Analyze>",\n'
-        '  "naturalness_feedback": "<1-2 sentence cautious observation about response style — do NOT claim AI generation with certainty>"\n'
+        '  "naturalness_feedback": "<1-2 sentence cautious observation about response style — do NOT claim AI generation with certainty>",\n'
+        f'  "questions_answered": {meaningful_count},\n'
+        f'  "total_questions": {total_q}\n'
         "}\n\n"
         "Base all scores strictly on the transcript content. "
         "Do NOT include markdown, code fences, or any text outside the JSON object."
@@ -298,6 +325,9 @@ def generate_screening_assessment(
                 "naturalness_feedback",
                 "Insufficient data to assess response naturalness."
             )).strip(),
+            # ── New tracking fields ──────────────────────────────────────────
+            "questions_answered": int(data.get("questions_answered", meaningful_count)),
+            "total_questions": int(data.get("total_questions", total_q))
         }
 
     except Exception as e:

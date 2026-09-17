@@ -252,8 +252,20 @@ def send_interview_message(session_id: str, request: InterviewMessageRequest):
 
         conversation_history = json.loads(session.conversation_history)
         
+        # Count AI messages to determine the current question number
+        assistant_count = sum(1 for msg in conversation_history if msg["role"] == "assistant")
+        
         # Append user message
         conversation_history.append({"role": "user", "content": request.message})
+
+        if assistant_count >= 7:
+            # Reached limit! Do NOT generate an 8th question.
+            session.conversation_history = json.dumps(conversation_history)
+            db.commit()
+            return {
+                "ai_response": "Thank you. The interview is now complete.",
+                "interview_completed": True
+            }
 
         try:
             ai_response = generate_interview_response(conversation_history)
@@ -266,7 +278,8 @@ def send_interview_message(session_id: str, request: InterviewMessageRequest):
             db.commit()
 
             return {
-                "ai_response": ai_response
+                "ai_response": ai_response,
+                "interview_completed": False
             }
         
         except Exception as e:

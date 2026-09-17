@@ -412,9 +412,14 @@
 
             <!-- AI Interview Simulation -->
             <div class="interview-card">
-                <div class="card-header">
-                    <h2>AI Interview Simulation</h2>
-                    <p>Live chat interview conducted by NovaAI for a selected candidate</p>
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h2>AI Interview Simulation</h2>
+                        <p>Live chat interview conducted by NovaAI for a selected candidate</p>
+                    </div>
+                    <div id="aiInterviewCounter" style="display: none; font-size: 14px; font-weight: 600; color: var(--primary); background: #eff6ff; padding: 4px 10px; border-radius: 12px; border: 1px solid #bfdbfe;">
+                        Question <span id="aiQuestionCurrent">1</span> of 7
+                    </div>
                 </div>
 
                 <div class="simulation-controls">
@@ -775,7 +780,12 @@
                             <div class="vs-question-label">
                                 <i class="fa-solid fa-robot"></i> Active NovaAI Question
                             </div>
-                            <span class="vs-live-badge"><i class="fa-solid fa-signal"></i> Spoken Stream</span>
+                            <div style="display:flex; align-items:center; gap: 10px;">
+                                <div id="vsQuestionCounter" style="display: none; font-size: 13px; font-weight: 600; color: #8b5cf6; background: #faf5ff; padding: 3px 8px; border-radius: 12px; border: 1px solid #e9d5ff;">
+                                    Question <span id="vsQuestionCurrent">1</span> of 5
+                                </div>
+                                <span class="vs-live-badge"><i class="fa-solid fa-signal"></i> Spoken Stream</span>
+                            </div>
                         </div>
                         <p id="vsCurrentQuestion" class="vs-question-text">Select a candidate and job position to begin voice screening with NovaAI.</p>
                     </div>

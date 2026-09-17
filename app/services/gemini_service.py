@@ -25,6 +25,26 @@ def _classify_groq_error(err: str) -> str:
     return "AI service temporarily unavailable. Please try again."
 
 
+def _count_meaningful_answers(history: list) -> int:
+    """
+    Deterministically counts meaningful candidate/user answers.
+    Excludes empty, whitespace, and basic filler words.
+    """
+    meaningful = 0
+    filler = {"yes", "no", "ok", "okay", "hmm", "yeah", "nah", "yep", "nope", "sure", "idk"}
+    for msg in history:
+        role = msg.get("role", "")
+        if role in ("user", "candidate"):
+            content = msg.get("content", "").strip()
+            if not content:
+                continue
+            clean = "".join(c for c in content.lower() if c.isalnum() or c.isspace()).strip()
+            if not clean or clean in filler:
+                continue
+            meaningful += 1
+    return meaningful
+
+
 def generate_interview_questions(
     job_title: str,
     question_type: str
@@ -250,11 +270,34 @@ def generate_interview_response(conversation_history: list):
 
 
 def generate_interview_summary(conversation_history: list, job_title: str = "", job_skills: list = None):
+    meaningful_count = _count_meaningful_answers(conversation_history)
+    total_q = 7
+
+    if meaningful_count == 0:
+        import json
+        return json.dumps({
+            "overall_score": 0.0,
+            "recommendation": "Not Recommended",
+            "skill_ratings": [],
+            "strengths": [],
+            "areas_for_improvement": ["Communication", "Engagement"],
+            "overall_feedback": "The candidate did not provide any meaningful answers during the interview. Insufficient evidence to evaluate.",
+            "questions_answered": 0,
+            "total_questions": 7
+        })
+
     skills_str = ", ".join([f"{s.get('name', '')}" for s in job_skills]) if job_skills else "None specified"
     
     system_prompt = f"""
 You are an expert technical recruiter evaluating a candidate's performance in an interview for the {job_title} role.
 The candidate was evaluated based on the following required skills: {skills_str}.
+
+**CRITICAL INSTRUCTION FOR SCORING (GENUINE ASSESSMENT):**
+- Evaluate the candidate based ONLY on their actual answers.
+- The candidate provided meaningful answers to {meaningful_count} out of {total_q} questions.
+- A candidate who answered very few questions must NOT receive a high score or a "Recommended" status, regardless of completing the session.
+- Base your score strictly on evidence of correctness, relevance, technical understanding, and problem-solving.
+- Do NOT reject a legitimate, concise answer merely because it is short.
 
 Analyze the preceding interview conversation and provide a structured JSON evaluation.
 
@@ -270,14 +313,14 @@ You MUST respond with valid JSON matching exactly this structure:
     }}
   ],
   "strengths": [
-    "<strength 1>",
-    "<strength 2>"
+    "<strength 1>"
   ],
   "areas_for_improvement": [
-    "<area 1>",
-    "<area 2>"
+    "<area 1>"
   ],
-  "overall_feedback": "<brief recruiter-friendly summary>"
+  "overall_feedback": "<brief recruiter-friendly summary>",
+  "questions_answered": {meaningful_count},
+  "total_questions": {total_q}
 }}
 
 IMPORTANT: The 'recommendation' field must be EXACTLY one of these two values:
