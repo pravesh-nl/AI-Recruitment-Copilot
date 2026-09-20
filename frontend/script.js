@@ -1,10 +1,10 @@
 /* ==========================================================
    AI Recruitment Copilot — script.js (Redesigned)
-   Backend API: http://127.0.0.1:8000
+   Backend API: https://ai-driven-smart-hiring-platform-with-2q4r.onrender.com
    All endpoints unchanged. Only UI rendering redesigned.
 ========================================================== */
 
-const API = "http://127.0.0.1:8000";
+const API = "https://ai-driven-smart-hiring-platform-with-2q4r.onrender.com";
 
 /* ----------------------------------------------------------
    STATE
@@ -2504,6 +2504,7 @@ let vsAccumulatedTranscript = "";  // accumulated answer text across multiple re
 let vsRecording            = false; // true while mic is actively capturing
 let vsQuestionCount        = 1;
 let vsSubmitting           = false; // prevents double-submission
+let vsSaving               = false; // prevents duplicate Save & Evaluate requests
 
 /* ----------------------------------------------------------
    Init — wire up VS button events
@@ -2658,6 +2659,16 @@ async function startVoiceScreening() {
         if (stopBtn) { stopBtn.disabled = false; stopBtn.innerHTML = `<i class="fa-solid fa-stop"></i> Stop Recording`; }
         document.getElementById("vsCandidate").disabled = true;
         document.getElementById("vsJob").disabled = true;
+
+        // ── Enable Save & Evaluate immediately after session starts ──────────
+        // The button must be available at ANY point during the screening,
+        // not only after all 5 questions are answered.
+        vsSaving = false;
+        const saveBtnEl = document.getElementById("vsSaveBtn");
+        if (saveBtnEl) {
+            saveBtnEl.disabled = false;
+            saveBtnEl.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Save &amp; Evaluate`;
+        }
 
         // Display first question
         vsSetCurrentQuestion(data.first_question);
@@ -2911,8 +2922,14 @@ async function vsSendResponse(spokenText) {
             vsSetCurrentQuestion(data.next_question);
             vsAppendTranscript("ai", data.next_question);
             document.getElementById("vsQuestionCounter").style.display = "none";
-            const saveBtn = document.getElementById("vsSaveBtn");
-            if (saveBtn && vsActive) saveBtn.click();
+
+            // ── Stop recognition BEFORE triggering auto-save ──────────────────
+            // Without this, recognition.onend restarts listening while the
+            // /end API call is in-flight, causing UI state corruption.
+            stopVoiceScreening();
+
+            // Trigger save directly (not via .click() which may be disabled)
+            saveVoiceScreening();
             return;
         }
 
@@ -2974,6 +2991,8 @@ function stopVoiceScreening() {
     vsActive     = false;
     vsRecording  = false;
     vsSubmitting = false;
+    // Note: vsSaving is intentionally NOT reset here — it persists to block
+    // duplicate Save & Evaluate if saveVoiceScreening() called stopVoiceScreening() internally.
 
     if (vsRecognition) {
         try { vsRecognition.abort(); } catch (e) {}
@@ -2985,20 +3004,25 @@ function stopVoiceScreening() {
     const saveBtn       = document.getElementById("vsSaveBtn");
     const submitAnswBtn = document.getElementById("vsSubmitAnswerBtn");
     if (stopBtn) { stopBtn.disabled = true; stopBtn.innerHTML = `<i class="fa-solid fa-stop"></i> Stop Recording`; }
-    if (saveBtn) saveBtn.disabled = false;
+    // Save & Evaluate stays enabled unless a save is already in-flight (vsSaving guard).
+    // It was already enabled when the session started and stays available.
+    if (saveBtn && !vsSaving) saveBtn.disabled = false;
     if (submitAnswBtn) submitAnswBtn.disabled = true;
 
     // Clear interim
     const interimEl = document.getElementById("vsInterimText");
     if (interimEl) interimEl.textContent = "";
 
-    setVsStatus("", "Stopped — click Save Screening to generate assessment");
-    showToast("Screening stopped. Click 'Save Screening' to generate the assessment.");
+    setVsStatus("", "Stopped — click Save &amp; Evaluate to generate assessment");
 }
 
 /* ----------------------------------------------------------
-   Save screening — POST /voice-screening/{id}/end
-   Generates AI assessment and persists to DB.
+   Save & Evaluate — POST /voice-screening/{id}/end
+   Works at ANY POINT during screening (mid-screening early termination).
+   Only answers already submitted via "Submit Answer" are evaluated.
+   The 5-question limit is a MAXIMUM, not a minimum requirement.
+   Zero-answer case: safely ends session, no positive scores awarded.
+   Duplicate-request guard: vsSaving flag blocks concurrent calls.
 ---------------------------------------------------------- */
 async function saveVoiceScreening() {
     if (!vsSessionId) {
@@ -3006,9 +3030,25 @@ async function saveVoiceScreening() {
         return;
     }
 
+    // ── Duplicate-request guard ──────────────────────────────────────────────
+    // Prevents two simultaneous Save & Evaluate API calls (e.g. double-click).
+    if (vsSaving) return;
+    vsSaving = true;
+
     const saveBtn = document.getElementById("vsSaveBtn");
-    if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating Assessment...`; }
-    setVsStatus("processing", "Generating assessment...");
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating Assessment...`;
+    }
+    setVsStatus("processing", "Saving &amp; generating assessment...");
+
+    // ── Safely stop recognition before evaluating ────────────────────────────
+    // Halts the mic and prevents recognition.onend from restarting listening
+    // while the /end API call is in-flight. Preserves already submitted answers.
+    // NOTE: stopVoiceScreening() does NOT reset vsSaving, so the guard holds.
+    if (vsActive || vsRecording) {
+        stopVoiceScreening();
+    }
 
     try {
         const res = await fetch(`${API}/voice-screening/${vsSessionId}/end`, {
@@ -3027,8 +3067,13 @@ async function saveVoiceScreening() {
     } catch (err) {
         console.error("VS save error:", err);
         showToast(err.message || "Failed to save screening.", true);
-        setVsStatus("", "Save failed");
-        if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Save Screening`; }
+        setVsStatus("", "Save failed — try again");
+        // Release the guard so the user can retry
+        vsSaving = false;
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Save &amp; Evaluate`;
+        }
     }
 }
 

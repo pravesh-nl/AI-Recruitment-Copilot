@@ -58,38 +58,71 @@ def get_candidate_evaluations(candidate_id: int, job_id: int = None):
 
     db = SessionLocal()
     try:
-        # Get latest completed interview session
+        # ── Get latest completed interview session (primary: has feedback) ───
         interview_query = db.query(InterviewSession).filter(
             InterviewSession.candidate_id == candidate_id,
             InterviewSession.status == "completed"
         )
         if job_id:
             interview_query = interview_query.filter(InterviewSession.job_id == job_id)
-            
+
         interview = interview_query.order_by(InterviewSession.created_at.desc()).first()
+
+        # ── Also check for active (started but not yet ended) sessions ────────
+        # This gives "Interview In Progress" instead of "Interview Not Done"
+        # when the candidate has started but not finished an interview.
+        active_interview = None
+        if not interview:
+            active_query = db.query(InterviewSession).filter(
+                InterviewSession.candidate_id == candidate_id,
+                InterviewSession.status == "active"
+            )
+            if job_id:
+                active_query = active_query.filter(InterviewSession.job_id == job_id)
+            active_interview = active_query.order_by(InterviewSession.created_at.desc()).first()
+
+        # Determine interview status label
+        if interview:
+            interview_status_label = "Interview Done"
+        elif active_interview:
+            interview_status_label = "Interview In Progress"
+        else:
+            interview_status_label = "Interview Not Done"
 
         ai_eval = {
             "score": "N/A",
             "recommendation": "Pending / Not Evaluated",
             "feedback": "",
-            "interview_status": "Interview Done" if interview else "Interview Not Done"
+            "interview_status": interview_status_label
         }
         
         if interview and interview.feedback:
             try:
                 fb = json.loads(interview.feedback)
-                ai_eval["score"] = fb.get("overall_score", "N/A")
-                ai_eval["recommendation"] = fb.get("recommendation", "Pending / Not Evaluated")
-                
-                # Check for other recommendation fields if 'recommendation' is missing
-                if ai_eval["recommendation"] == "Pending / Not Evaluated":
-                    if "overall_score" in fb and fb["overall_score"] != "N/A":
-                        score = float(fb["overall_score"])
-                        ai_eval["recommendation"] = "Recommended" if score >= 6.0 else "Not Recommended"
-                
+                raw_score = fb.get("overall_score", "N/A")
+                ai_eval["score"] = raw_score
                 ai_eval["feedback"] = fb.get("overall_feedback", "")
+
+                # ── Deterministic recommendation from score ───────────────────
+                # We do NOT trust the stored recommendation string directly,
+                # because old sessions may have stored "Pending / Not Evaluated"
+                # or other stale values. Always re-derive from score.
+                stored_rec = fb.get("recommendation", "")
+                if stored_rec in ("Recommended", "Not Recommended"):
+                    # Valid stored value — use it as-is
+                    ai_eval["recommendation"] = stored_rec
+                elif raw_score != "N/A":
+                    try:
+                        score_f = float(raw_score)
+                        ai_eval["recommendation"] = "Recommended" if score_f >= 6.0 else "Not Recommended"
+                    except (TypeError, ValueError):
+                        ai_eval["recommendation"] = "Pending / Not Evaluated"
+                else:
+                    ai_eval["recommendation"] = "Pending / Not Evaluated"
+
             except Exception as e:
                 print(f"Error parsing AI feedback: {e}")
+
 
         # Get latest completed voice screening session
         voice_query = db.query(VoiceScreeningSession).filter(

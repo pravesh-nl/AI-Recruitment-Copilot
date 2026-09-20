@@ -291,57 +291,125 @@ def send_interview_message(session_id: str, request: InterviewMessageRequest):
 
 @router.post("/{session_id}/end")
 def end_interview(session_id: str):
+    import logging
+    logger = logging.getLogger("interview.end")
+
     db = SessionLocal()
     try:
         session = db.query(InterviewSession).filter(InterviewSession.session_id == session_id).first()
         if not session:
             raise HTTPException(status_code=404, detail="Interview session not found")
 
+        # ── IDEMPOTENCY: already completed → return existing summary ──────────
+        # This handles the case where sendSimMessage auto-triggers endInterviewBtn
+        # after the 7th question AND the user has already clicked End once.
+        # Raising 400 here would cause the frontend to swallow the summary silently.
         if session.status == "completed":
-            raise HTTPException(status_code=400, detail="Interview session is already completed")
+            existing_summary = {}
+            if session.feedback:
+                try:
+                    existing_summary = json.loads(session.feedback)
+                except Exception:
+                    pass
+            return {
+                "message": "Interview already completed",
+                "summary": existing_summary,
+                "session_id": session_id
+            }
 
         conversation_history = json.loads(session.conversation_history)
-        
+
         job = db.query(Job).filter(Job.id == session.job_id).first()
         job_title = job.title if job else ""
         job_skills = json.loads(job.skills or "[]") if job else []
 
-        try:
-            summary_json_str = generate_interview_summary(conversation_history, job_title, job_skills)
-            
-            try:
-                summary = json.loads(summary_json_str)
-            except json.JSONDecodeError:
-                # Fallback if the LLM didn't return perfectly parseable JSON
-                summary = {
-                    "overall_score": 0,
-                    "recommendation": "Pending / Not Evaluated",
-                    "skill_ratings": [],
-                    "strengths": [],
-                    "areas_for_improvement": [],
-                    "overall_feedback": summary_json_str
-                }
+        # ── DETERMINISTIC ANSWER COUNT (Python, not LLM) ─────────────────────
+        from app.services.gemini_service import _count_meaningful_answers
+        meaningful_count = _count_meaningful_answers(conversation_history)
+        total_q = 7
 
-            # Normalize recommendation to allowed values only.
-            # This guards against any arbitrary LLM output.
-            raw_rec = summary.get("recommendation", "")
-            score = summary.get("overall_score", 0)
-            allowed = {"Recommended", "Not Recommended"}
-            if raw_rec not in allowed:
-                # Derive deterministically from score if LLM gave unexpected value
-                summary["recommendation"] = "Recommended" if (isinstance(score, (int, float)) and score >= 6.0) else "Not Recommended"
-
-            # Update DB
+        # ── ZERO-ANSWER GUARD ─────────────────────────────────────────────────
+        # If the candidate provided zero meaningful answers, skip the LLM call
+        # and persist a safe "Not Recommended" result immediately.
+        # This prevents the LLM from ever awarding a positive result on an empty session.
+        if meaningful_count == 0:
+            summary = {
+                "overall_score": 0.0,
+                "recommendation": "Not Recommended",
+                "skill_ratings": [],
+                "strengths": [],
+                "areas_for_improvement": ["Communication", "Engagement"],
+                "overall_feedback": (
+                    "The candidate did not provide any meaningful answers during the interview. "
+                    "Insufficient evidence to evaluate."
+                ),
+                "questions_answered": 0,
+                "total_questions": total_q
+            }
             session.status = "completed"
             session.feedback = json.dumps(summary)
             db.commit()
+            logger.info(
+                "Interview %s ended with 0 meaningful answers → Not Recommended (no LLM call).",
+                session_id
+            )
+            return {"message": "Interview ended successfully", "summary": summary}
 
-            return {
-                "message": "Interview ended successfully",
-                "summary": summary
-            }
+        try:
+            summary_json_str = generate_interview_summary(conversation_history, job_title, job_skills)
+
+            # ── Parse LLM result ─────────────────────────────────────────────
+            try:
+                summary = json.loads(summary_json_str)
+            except (json.JSONDecodeError, TypeError, ValueError):
+                # LLM returned malformed JSON — safe fallback, saved to DB as Pending
+                logger.warning("Interview %s: LLM returned unparseable JSON. Saving fallback.", session_id)
+                summary = {
+                    "overall_score": 0.0,
+                    "recommendation": "Not Recommended",
+                    "skill_ratings": [],
+                    "strengths": [],
+                    "areas_for_improvement": [],
+                    "overall_feedback": "Evaluation could not be completed — AI response was malformed. Please retry.",
+                    "questions_answered": meaningful_count,
+                    "total_questions": total_q
+                }
+
+            # ── DETERMINISTIC RECOMMENDATION (override LLM) ───────────────────
+            # Always derive recommendation from score, never trust raw LLM text.
+            # This prevents arbitrary/hallucinated recommendation strings.
+            score = summary.get("overall_score", 0)
+            try:
+                score = float(score)
+            except (TypeError, ValueError):
+                score = 0.0
+                summary["overall_score"] = 0.0
+
+            # Enforce: 0 meaningful answers → always Not Recommended
+            if meaningful_count == 0:
+                summary["recommendation"] = "Not Recommended"
+            elif score >= 6.0:
+                summary["recommendation"] = "Recommended"
+            else:
+                summary["recommendation"] = "Not Recommended"
+
+            # Always stamp the Python-counted values (not LLM-reported)
+            summary["questions_answered"] = meaningful_count
+            summary["total_questions"] = total_q
+
+            # ── Persist ───────────────────────────────────────────────────────
+            session.status = "completed"
+            session.feedback = json.dumps(summary)
+            db.commit()
+            logger.info(
+                "Interview %s ended. meaningful_count=%d, score=%.1f, recommendation=%s",
+                session_id, meaningful_count, score, summary["recommendation"]
+            )
+
+            return {"message": "Interview ended successfully", "summary": summary}
 
         except Exception as e:
+            logger.error("Interview %s end error: %s", session_id, str(e))
             raise HTTPException(status_code=503, detail=str(e))
 
     finally:

@@ -270,6 +270,9 @@ def generate_interview_response(conversation_history: list):
 
 
 def generate_interview_summary(conversation_history: list, job_title: str = "", job_skills: list = None):
+    import logging
+    logger = logging.getLogger("gemini_service.summary")
+
     meaningful_count = _count_meaningful_answers(conversation_history)
     total_q = 7
 
@@ -287,66 +290,55 @@ def generate_interview_summary(conversation_history: list, job_title: str = "", 
         })
 
     skills_str = ", ".join([f"{s.get('name', '')}" for s in job_skills]) if job_skills else "None specified"
-    
-    system_prompt = f"""
-You are an expert technical recruiter evaluating a candidate's performance in an interview for the {job_title} role.
-The candidate was evaluated based on the following required skills: {skills_str}.
 
-**CRITICAL INSTRUCTION FOR SCORING (GENUINE ASSESSMENT):**
-- Evaluate the candidate based ONLY on their actual answers.
-- The candidate provided meaningful answers to {meaningful_count} out of {total_q} questions.
-- A candidate who answered very few questions must NOT receive a high score or a "Recommended" status, regardless of completing the session.
-- Base your score strictly on evidence of correctness, relevance, technical understanding, and problem-solving.
-- Do NOT reject a legitimate, concise answer merely because it is short.
+    # ── System prompt placed FIRST as a system-role message ──────────────────
+    # This is the correct pattern: system messages tell the LLM its role
+    # BEFORE the conversation, not after (appending as user message caused the
+    # LLM to sometimes treat the instruction as candidate text → zero scores).
+    system_prompt = (
+        f"You are an expert technical recruiter evaluating a candidate's performance "
+        f"in an interview for the {job_title} role. "
+        f"The candidate was evaluated based on the following required skills: {skills_str}.\n\n"
+        "CRITICAL INSTRUCTION FOR SCORING (GENUINE ASSESSMENT):\n"
+        "- Evaluate the candidate based ONLY on their actual answers.\n"
+        f"- The candidate provided meaningful answers to {meaningful_count} out of {total_q} questions.\n"
+        "- A candidate who answered very few questions must NOT receive a high score or a "
+        "\"Recommended\" status, regardless of completing the session.\n"
+        "- Base your score strictly on evidence of correctness, relevance, technical understanding, "
+        "and problem-solving.\n"
+        "- Do NOT reject a legitimate, concise answer merely because it is short.\n\n"
+        "Analyze the preceding interview conversation and provide a structured JSON evaluation.\n\n"
+        "You MUST respond with valid JSON matching exactly this structure:\n"
+        "{\n"
+        '  "overall_score": <float between 0 and 10>,\n'
+        '  "recommendation": "<MUST be exactly \'Recommended\' if overall_score >= 6.0, otherwise exactly \'Not Recommended\'>",\n'
+        '  "skill_ratings": [\n'
+        '    { "skill": "<skill_name>", "score": <float between 0 and 10>, "reason": "<short justification>" }\n'
+        "  ],\n"
+        '  "strengths": ["<strength 1>"],\n'
+        '  "areas_for_improvement": ["<area 1>"],\n'
+        '  "overall_feedback": "<brief recruiter-friendly summary>",\n'
+        f'  "questions_answered": {meaningful_count},\n'
+        f'  "total_questions": {total_q}\n'
+        "}\n\n"
+        "IMPORTANT: The 'recommendation' field must be EXACTLY one of these two values:\n"
+        "- \"Recommended\" (if overall_score >= 6.0)\n"
+        "- \"Not Recommended\" (if overall_score < 6.0)\n"
+        "Do not use any other value.\n\n"
+        "Do NOT include markdown block backticks (```json). Just return the JSON object directly. "
+        "Ensure it is perfectly parseable."
+    )
 
-Analyze the preceding interview conversation and provide a structured JSON evaluation.
-
-You MUST respond with valid JSON matching exactly this structure:
-{{
-  "overall_score": <float between 0 and 10>,
-  "recommendation": "<MUST be exactly 'Recommended' if overall_score >= 6.0, otherwise exactly 'Not Recommended'>",
-  "skill_ratings": [
-    {{
-      "skill": "<skill_name>",
-      "score": <float between 0 and 10>,
-      "reason": "<short justification based on the interview>"
-    }}
-  ],
-  "strengths": [
-    "<strength 1>"
-  ],
-  "areas_for_improvement": [
-    "<area 1>"
-  ],
-  "overall_feedback": "<brief recruiter-friendly summary>",
-  "questions_answered": {meaningful_count},
-  "total_questions": {total_q}
-}}
-
-IMPORTANT: The 'recommendation' field must be EXACTLY one of these two values:
-- "Recommended" (if overall_score >= 6.0)
-- "Not Recommended" (if overall_score < 6.0)
-Do not use any other value.
-
-Do NOT include markdown block backticks (```json). Just return the JSON object directly. Ensure it is perfectly parseable.
-"""
-
-    messages = []
+    # ── Build messages: system prompt FIRST, then conversation history ────────
+    messages = [{"role": "system", "content": system_prompt}]
     for msg in conversation_history:
-        messages.append({
-            "role": msg.get("role", "user"),
-            "content": msg.get("content", "")
-        })
-        
-    messages.append({
-        "role": "user",
-        "content": system_prompt
-    })
+        role = msg.get("role", "user")
+        # Map any unexpected role values to valid API roles
+        if role not in ("system", "assistant", "user"):
+            role = "user"
+        messages.append({"role": role, "content": msg.get("content", "")})
 
     try:
-        # Note: Groq supports response_format={"type": "json_object"} on some models.
-        # To be safe across models (like openai/gpt-oss-120b or groq equivalents), 
-        # we explicitly ask for JSON in the prompt and use the parameter if available.
         response = client.chat.completions.create(
             model="openai/gpt-oss-120b",
             messages=messages,
@@ -359,4 +351,5 @@ Do NOT include markdown block backticks (```json). Just return the JSON object d
         except AttributeError:
             return response.text
     except Exception as e:
+        logger.error("generate_interview_summary error: %s", str(e))
         raise Exception(_classify_groq_error(str(e)))
