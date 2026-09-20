@@ -1,5 +1,5 @@
 import json
-from app.services.gemini_service import _count_meaningful_answers
+from app.services.ai_service import _count_meaningful_answers
 
 def run_tests():
     print("Running Tests for _count_meaningful_answers...")

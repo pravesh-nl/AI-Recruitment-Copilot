@@ -1,7 +1,7 @@
 import json
 import re
 
-from app.services.gemini_skill_service import analyze_all_skills
+from app.services.skill_service import analyze_all_skills
 # ============================================================
 # PARSE JSON / LIST DATA
 # ============================================================
@@ -110,7 +110,7 @@ def analyze_candidate_skill(candidate, skill_name):
 
     # --------------------------------------------------------
     # Skill not explicitly listed
-    # Ask Gemini to look for evidence
+    # Ask Groq to look for evidence
     # --------------------------------------------------------
 
     candidate_data = build_candidate_evidence(candidate)
@@ -311,7 +311,7 @@ def infer_skill_level(candidate, skill_name):
 
     return "Basic"
 # ============================================================
-# INFER SKILL LEVEL FROM GEMINI ANALYSIS
+# INFER SKILL LEVEL FROM GROQ ANALYSIS
 # ============================================================
 
 def infer_skill_level_from_analysis(skill_analysis):
@@ -458,7 +458,7 @@ def calculate_match(candidate, job):
     ]
 
     # --------------------------------------------------------
-    # Analyze ALL skills in ONE Gemini request
+    # Analyze ALL skills in ONE Groq request
     # --------------------------------------------------------
 
     try:
@@ -468,7 +468,7 @@ def calculate_match(candidate, job):
         )
     except Exception as e:
         print(
-            f"[WARNING] Gemini skill analysis unavailable: {e}"
+            f"[WARNING] Groq skill analysis unavailable: {e}"
         )
 
         all_skill_analysis = []
@@ -499,7 +499,7 @@ def calculate_match(candidate, job):
                     )
                 })
         # ========================================================
-    # FALLBACK IF GEMINI IS UNAVAILABLE
+    # FALLBACK IF GROQ IS UNAVAILABLE
     # ========================================================
 
     if not all_skill_analysis:

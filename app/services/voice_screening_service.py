@@ -1,6 +1,6 @@
 """
 Voice Screening Service — Milestone 4
-Reuses the existing Groq client pattern from gemini_service.py.
+Reuses the existing Groq client pattern from ai_service.py.
 Does NOT introduce a new AI provider.
 Handles 429 rate-limit errors gracefully without crashing.
 
@@ -27,11 +27,11 @@ import json
 from dotenv import load_dotenv
 from groq import Groq
 
-from app.services.gemini_service import _count_meaningful_answers
+from app.services.ai_service import _count_meaningful_answers
 
 load_dotenv(override=True)
 
-# Reuse the same Groq client pattern as gemini_service.py
+# Reuse the same Groq client pattern as ai_service.py
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 MODEL = "openai/gpt-oss-120b"

@@ -1,7 +1,6 @@
 import json
 import os
 import time
-from google.genai import errors
 from dotenv import load_dotenv
 from groq import Groq
 
@@ -11,54 +10,11 @@ load_dotenv()
 client = Groq(
     api_key=os.getenv("GROQ_API_KEY")
 )
-""""
-def call_gemini_with_retry(prompt):
-
-    max_retries = 3
-
-    for attempt in range(max_retries):
-
-        try:
-            response = client.chat.completions.create(
-                model="openai/gpt-oss-120b",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                temperature=0
-            )
-
-            return response
-
-
-        except Exception as e:
-
-            error = str(e)
-
-            if "429" in error or "RESOURCE_EXHAUSTED" in error:
-
-                wait_time = 2 ** attempt
-
-                print(
-                    f"Gemini rate limit hit. Waiting {wait_time}s..."
-                )
-
-                time.sleep(wait_time)
-
-            else:
-                raise e
-
-
-    raise Exception(
-        "Gemini failed after multiple retries"
- )"""
     
 def analyze_all_skills(required_skills, candidate_data):
     """
     Analyze all required skills for a candidate
-    using a single Gemini API request.
+    using a single Groq API request.
     """
 
     skills_text = "\n".join(
@@ -129,7 +85,7 @@ Example:
 """
 
     # ========================================================
-    # GEMINI API CALL
+    # GROQ API CALL
     # ========================================================
 
     try:
@@ -146,7 +102,7 @@ Example:
     except Exception as e:
 
         print(
-            f"\n[WARNING] Gemini skill analysis unavailable: {e}\n"
+            f"\n[WARNING] Groq skill analysis unavailable: {e}\n"
         )
 
         # Safe fallback
@@ -157,7 +113,7 @@ Example:
                 "level": None,
                 "confidence": 0.0,
                 "evidence": (
-                    "Gemini analysis unavailable. "
+                    "Groq analysis unavailable. "
                     "No AI-based evidence analysis was performed."
                 )
             }
@@ -165,7 +121,7 @@ Example:
         ]
 
     # ========================================================
-    # PARSE GEMINI RESPONSE
+    # PARSE GROQ RESPONSE
     # ========================================================
 
     try:
@@ -193,7 +149,7 @@ Example:
 
     except Exception as e:
         print(
-            f"\n[WARNING] Failed to parse Gemini response: {e}\n"
+            f"\n[WARNING] Failed to parse Groq response: {e}\n"
         )
 
         return [
@@ -203,7 +159,7 @@ Example:
                 "level": None,
                 "confidence": 0.0,
                 "evidence": (
-                    "Gemini returned an invalid response. "
+                    "Groq returned an invalid response. "
                     "No AI-based evidence analysis was performed."
                 )
             }

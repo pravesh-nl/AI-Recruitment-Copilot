@@ -271,7 +271,7 @@ def generate_interview_response(conversation_history: list):
 
 def generate_interview_summary(conversation_history: list, job_title: str = "", job_skills: list = None):
     import logging
-    logger = logging.getLogger("gemini_service.summary")
+    logger = logging.getLogger("ai_service.summary")
 
     meaningful_count = _count_meaningful_answers(conversation_history)
     total_q = 7

@@ -1,4 +1,4 @@
-from app.services.gemini_skill_service import analyze_skill_evidence
+from app.services.skill_service import analyze_skill_evidence
 
 
 candidate_data = {

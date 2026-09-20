@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from app.database import SessionLocal
 from app.models.job import Job
-from app.services.gemini_service import generate_job_interview_questions
+from app.services.ai_service import generate_job_interview_questions
 
 
 router = APIRouter(
@@ -115,7 +115,7 @@ def regenerate_question(request: RegenerateQuestionRequest):
 
         try:
             # We import it here or at the top of the file
-            from app.services.gemini_service import regenerate_job_interview_question
+            from app.services.ai_service import regenerate_job_interview_question
             
             new_question_text = regenerate_job_interview_question(
                 job_title=job.title,
@@ -149,7 +149,7 @@ def regenerate_question(request: RegenerateQuestionRequest):
 import uuid
 from app.models.candidate import Candidate
 from app.models.interview_session import InterviewSession
-from app.services.gemini_service import (
+from app.services.ai_service import (
     start_interview_simulation,
     generate_interview_response,
     generate_interview_summary
@@ -324,7 +324,7 @@ def end_interview(session_id: str):
         job_skills = json.loads(job.skills or "[]") if job else []
 
         # ── DETERMINISTIC ANSWER COUNT (Python, not LLM) ─────────────────────
-        from app.services.gemini_service import _count_meaningful_answers
+        from app.services.ai_service import _count_meaningful_answers
         meaningful_count = _count_meaningful_answers(conversation_history)
         total_q = 7
 
@@ -450,7 +450,7 @@ def get_ats_candidates():
                 # --------------------------------------------------------
                 # Milestone 4 fix: ATS status is DB-only.
                 # calculate_match() is NOT called here because it invokes
-                # the Groq/Gemini AI which can fail with 429 rate-limit errors.
+                # the Groq AI which can fail with 429 rate-limit errors.
                 # ATS must always return 200 regardless of AI availability.
                 # --------------------------------------------------------
                 match_percentage = None  # Not calculated here — use /matching/job/{id} for scores
