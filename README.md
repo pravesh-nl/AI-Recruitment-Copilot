@@ -1,565 +1,635 @@
-# AI-Driven Smart Hiring Platform with Candidate Matching Copilot
-
-An AI-powered recruitment platform that automates **resume parsing, candidate profiling, job-based candidate matching, skill analysis, candidate ranking, and skill-gap identification**.
-
-The platform is designed to reduce manual resume screening and provide recruiters with a more consistent and explainable candidate evaluation workflow.
-
----
-
-## 1. Project Overview
-
-Traditional recruitment requires recruiters to manually read resumes, extract candidate information, compare skills with job requirements, evaluate experience, and identify missing skills.
-
-This project automates these activities by:
-
-* Processing resumes automatically
-* Creating structured candidate profiles
-* Managing job requirements
-* Comparing candidates with selected jobs
-* Using an LLM for skill and proficiency analysis
-* Calculating candidate hiring scores
-* Ranking candidates
-* Identifying skill gaps
-
-The project currently covers two completed milestones:
-
-* **Milestone 1:** Resume Parsing & Candidate Profiling
-* **Milestone 2:** Candidate Matching & Skill-Gap Analysis
-
----
-
-# 2. Problem Statement
-
-Recruiters often receive a large number of resumes with different formats and layouts. Manually screening these resumes is time-consuming and can lead to inconsistent evaluation.
-
-The platform addresses this problem by converting unstructured resumes into structured candidate profiles and then comparing those profiles against specific job requirements.
-
----
-
-# 3. Solution Workflow
-
-```text
-             RESUME
-                │
-                ▼
-         Resume Upload
-                │
-                ▼
-       PDF / DOCX Parsing
-                │
-                ▼
-     Candidate Information
-          Extraction
-                │
-                ▼
-      Structured Candidate
-            Profile
-                │
-                ▼
-           Database
-                │
-                ▼
-       Job Creation/Selection
-                │
-                ▼
-      Job Requirements
-      + Required Skills
-      + Skill Levels
-      + Experience
-                │
-                ▼
-       Candidate Matching
-                │
-                ▼
-       AI Skill Analysis
-                │
-                ▼
-       Skill Gap Analysis
-                │
-                ▼
-        Hiring Score
-       80% Skills
-       20% Experience
-                │
-                ▼
-       Ranked Candidates
-```
+I Driven Smart Hiring Platform With Candidate Matching Copilot
 
----
+An end-to-end AI-assisted recruitment platform that helps recruiters move from resume processing and candidate profiling to job matching, AI interviewing, preliminary voice screening, analytics, and final recruiter-controlled hiring decisions in one application.
 
-# 4. Milestone 1 — Resume Parsing & Candidate Profiling
+Core principle: AI assists the recruiter; it does not independently make the final hiring decision.
 
-## Objective
+🚀 Live Demo
 
-Milestone 1 establishes the candidate-data foundation of the platform.
+Component
 
-It converts unstructured PDF/DOCX resumes into structured candidate profiles that can be stored in the database and reused by the matching system.
+URL
 
-### Main Features
+Frontend
 
-* Resume upload and processing
-* PDF/DOCX text extraction
-* Candidate name extraction
-* Email and phone extraction
-* Skill extraction
-* Education extraction
-* Location extraction
-* Experience extraction
-* Candidate profile creation
-* Database storage
-* Candidate retrieval APIs
-* Frontend candidate display
+https://ai-recruitment-copilot-gz9x.onrender.com
 
----
+Backend API
 
-## Milestone 1 Workflow
+https://ai-driven-smart-hiring-platform-with-2q4r.onrender.com
 
-1. Recruiter uploads a resume.
-2. FastAPI receives the uploaded file.
-3. Resume text is extracted.
-4. Candidate information is identified.
-5. Extracted information is normalized and validated.
-6. Candidate profile is stored in the database.
-7. Backend APIs provide the processed candidate information.
-8. Frontend displays the candidate profile.
+API Documentation
 
----
+https://ai-driven-smart-hiring-platform-with-2q4r.onrender.com/docs
 
-# 5. Milestone 1 — Backend Architecture
+📌 Project Overview
 
-The backend follows a modular structure where API routes, business logic, database models, and schemas are separated.
+Recruitment involves several repetitive and disconnected activities such as resume screening, candidate-job comparison, interviews, screening, and final evaluation. This project brings those activities into a single recruiter-facing platform.
 
-This makes the system easier to maintain and allows the parsing system to be reused by later modules.
+The system can:
 
-| Component                      | Purpose                                                |
-| ------------------------------ | ------------------------------------------------------ |
-| `app/main.py`                  | FastAPI application entry point and route registration |
-| `app/database.py`              | Database connection and session management             |
-| `app/routes/upload.py`         | Receives resume uploads and starts processing          |
-| `app/routes/candidate.py`      | Provides candidate retrieval APIs                      |
-| `app/services/parser.py`       | Handles resume/document parsing                        |
-| `app/services/extractor.py`    | Extracts candidate fields from parsed content          |
-| `app/models/candidate.py`      | Defines the candidate database model                   |
-| `app/models/upload_history.py` | Tracks upload/processing information                   |
-| `app/schemas/`                 | Defines structured API request/response data           |
+Parse PDF/DOCX resumes and create structured candidate profiles.
 
----
+Manage jobs and role requirements.
 
-# 6. Resume Parsing & Extraction
+Define required skill proficiency as Basic, Intermediate, or Advanced.
 
-The resume processing pipeline converts an unstructured resume into structured candidate information.
+Perform deterministic ATS candidate-job matching.
 
-The system separates:
+Identify skill gaps for a selected candidate and job.
 
-### Parser
+Conduct a deeper text-based AI Interview.
 
-`parser.py`
+Conduct a preliminary Voice Screening using the browser Web Speech API.
 
-Responsible for processing the uploaded document and extracting usable text/content from supported resume formats.
+Provide AI-assisted evaluation while avoiding automatic hiring decisions.
 
-### Extractor
+Display real recruitment analytics through a dashboard.
 
-`extractor.py`
+Record recruiter decisions such as Hired, Not Selected, In Progress, or Pending.
 
-Responsible for identifying meaningful candidate fields from the parsed content.
+🎯 Problem Statement
 
-These can include:
+Recruiters often need to manually review resumes, compare candidates against job requirements, conduct interviews, perform initial screening, and then consolidate multiple evaluation results before making a hiring decision.
 
-* Name
-* Email
-* Phone
-* Skills
-* Education
-* Location
-* Experience
+The project addresses this by providing a centralized platform that combines candidate profiling, job-specific matching, interview evaluation, preliminary voice screening, analytics, and recruiter-controlled decision making.
 
-This separation makes it easier to improve extraction logic without changing the upload/API layer.
+✨ Key Features
 
-### Important Consideration
+1. Resume Upload & Candidate Profiling
 
-Different resumes use different layouts. Therefore, extraction cannot depend only on fixed positions.
+PDF/DOCX resume processing.
 
-Name extraction also requires validation because headings such as:
+Extraction of name, contact information, location, education, experience, and skills.
 
-```text
-Full Name
-Candidate Profile
-Black Box
-Experience
-```
+spaCy-based NLP for structured extraction.
 
-or other prominent text can sometimes be incorrectly interpreted as a person's name.
+Safe handling of missing or ambiguous names.
 
-The system should only store information supported by the resume rather than inventing missing information.
+name_source records the provenance of an extracted name when available.
 
----
+When a valid candidate name cannot be determined, the system uses “Name not provided” rather than incorrectly treating a location, company, college, or skill as the person's name.
 
-# 7. Database
+2. Job Management
 
-The database provides persistent storage for processed candidate profiles.
+Recruiters can create job requirements including:
 
-The project uses:
+Job title and description
 
-* **SQLite** as the database
-* **SQLAlchemy** for database interaction
+Required skills
 
-Candidate information is stored so that the matching engine can later reuse the extracted profile without parsing the original resume again.
+Minimum experience
 
-The database contains information related to candidates and upload/processing history.
+Skill proficiency requirements
 
----
+Each required skill can be assigned:
 
-# 8. Milestone 2 — Candidate Matching & Skill-Gap Analysis
+Basic
 
-## Objective
+Intermediate
 
-Milestone 2 uses the structured candidate profiles created in Milestone 1 and compares them against job requirements.
+Advanced
 
-The system evaluates:
+These are required skill proficiency levels, not overall candidate match levels.
 
-* Required skills
-* Candidate skills
-* Required skill level
-* Candidate proficiency level
-* Candidate experience
-* Missing skills
-* Skill-level gaps
-* Overall candidate suitability
+3. ATS / Candidate-Job Matching
 
-### Main Features
+The platform provides deterministic candidate-job matching for more consistent and explainable results.
 
-* Job creation
-* Job requirement management
-* Required experience
-* Required skills
-* Basic/Intermediate/Expert skill levels
-* Candidate-job matching
-* Candidate ranking
-* AI skill analysis
-* Hiring score calculation
-* Skill-gap analysis
+Overall match tiers:
 
----
+Tier
 
-# 9. Groq + LLM Skill Analysis
+Score
 
-The platform uses the **Groq API to access an LLM** for analyzing candidate skills and resume evidence.
+Excellent
 
-The LLM evaluates each required skill and determines its status and proficiency.
+85–100%
 
-## Skill Status
+Strong
 
-### Explicit
+70–84%
 
-The skill is directly mentioned or clearly demonstrated in the candidate profile.
+Moderate
 
-Example:
+50–69%
 
-```text
-Python is listed in the candidate's skills.
-```
+Low
 
-### Inferred
+Below 50%
 
-The skill is reasonably inferred from projects or experience.
+The platform also supports skill-gap analysis for a selected candidate and job.
 
-Example:
+ATS results are decision-support evidence and do not automatically hire or reject candidates.
 
-```text
-The candidate worked on an AI project,
-suggesting some exposure to Machine Learning.
-```
+4. AI Interview Assistant
 
-### Missing
+The AI Interview is the deeper technical and behavioral evaluation layer.
 
-There is insufficient evidence that the candidate possesses the skill.
+Context-aware question generation.
 
-Example:
+Maximum 7 questions per interview.
 
-```text
-No mention or supporting evidence of Docker.
-```
+Progress shown as Question X of 7.
 
----
+Evaluation based on the candidate's actual submitted answers.
 
-# 10. Skill Proficiency Analysis
+Empty/meaningless responses are not treated as valid evidence.
 
-The LLM categorizes the candidate's skill level as:
+Final result includes the existing interview assessment and:
 
-### Basic
+Recommended
 
-Limited exposure, coursework, or simple project usage.
+Not Recommended
 
-### Intermediate
+Pending / Not Evaluated
 
-Meaningful practical or project-level implementation.
+5. Preliminary Voice Screening
 
-### Expert
+Voice Screening is intentionally separate from the deeper AI Interview.
 
-Strong professional/project experience or advanced demonstrated expertise.
+It focuses on preliminary indicators such as:
 
-The analysis can also return:
+Communication
 
-* Confidence
-* Evidence
-* Candidate level
-* Required level
-* Level match
+Clarity
 
-Example:
+Fluency
 
-```json
-{
-  "skill": "Python",
-  "status": "explicit",
-  "level": "Intermediate",
-  "confidence": 0.8,
-  "evidence": "Python is listed in skills and used in projects."
-}
-```
+Confidence
 
-This makes the matching process more explainable than simple keyword matching.
+Professionalism
 
----
+Basic domain familiarity
 
-# 11. Hiring Score
+Basic teamwork/leadership indicators
 
-The candidate score uses the following weighting:
+Technical features:
 
-```text
-Skills       = 80%
-Experience   = 20%
-```
+Browser SpeechRecognition / webkitSpeechRecognition
 
-The overall score is calculated as:
+Browser SpeechSynthesis
 
-```text
-Final Score =
-    (Skill Score × 0.80)
-  + (Experience Score × 0.20)
-```
+Maximum 5 questions
 
-Skills have the higher weight because technical suitability is the primary factor in the candidate matching process.
+Progress shown as Question X of 5
 
-Experience contributes the remaining 20%.
+Manual Submit Answer control
 
----
+Natural pauses do not automatically submit the answer
 
-# 12. Skill Gap Analysis
+Actual submitted transcripts are evaluated and persisted
 
-For every selected candidate and job, the system identifies whether the candidate satisfies each required skill.
+Voice Screening result:
 
-### Matched Skill
+Screened
 
-The candidate has the required skill at the required level.
+Not Screened
 
-Example:
+Pending / Not Evaluated
 
-```text
-Required: Python → Intermediate
-Candidate: Python → Intermediate
+6. Answer Naturalness Insight
 
-Result: Match
-```
+Voice Screening can also provide a cautious observation such as:
 
-### Level Gap
+Natural
 
-The candidate has the skill but below the required level.
+Possibly Scripted
 
-Example:
+Highly Scripted / Potentially AI-Assisted
 
-```text
-Required: Python → Expert
-Candidate: Python → Intermediate
+This is an additional observation, not a definitive AI detector, and does not replace the main Screened / Not Screened result.
 
-Result: Level Gap
-```
+7. Recruiter Hiring Decision
 
-### Missing Skill
+The recruiter reviews the available evidence and makes the final decision.
 
-There is no sufficient evidence of the required skill.
+Possible states:
 
-Example:
+Hired
 
-```text
-Required: Docker → Basic
-Candidate: Docker → Missing
+Not Selected
 
-Result: Missing Skill
-```
+In Progress
 
-The skill-gap analysis also provides supporting evidence and confidence where applicable.
+Pending / Not Evaluated
 
----
+No ATS score, AI Interview result, or Voice Screening result automatically becomes a hiring decision.
 
-# 13. Tech Stack
+8. Recruiter Dashboard
 
-## Backend
+The dashboard provides real project analytics including:
 
-* Python
-* FastAPI
-* Uvicorn
-* Pydantic
+Candidate and job counts
 
-## Database
+Interview activity
 
-* SQLite
-* SQLAlchemy
+Voice Screening activity
 
-## Resume Processing
+Candidate skill distribution
 
-* PDF/DOCX parsing utilities
+ATS matching analytics
 
-## NLP / Extraction
+AI Interview analytics
 
-* spaCy
-* Rule/pattern-based extraction
+Voice Screening insights
 
-## AI / LLM
+Evaluation comparison
 
-* Groq API
-* LLM-based skill and evidence analysis
+Candidate hiring status
 
-## Frontend
+Dashboard values are derived from application data rather than fabricated HR metrics.
 
-* HTML
-* CSS
-* JavaScript
+🧩 Evaluation Layers
 
----
+The application deliberately separates the different evaluation stages:
 
-# 14. Project Structure
+Layer
 
-```text
-AI-Recruitment-Copilot/
+Purpose
+
+Result
+
+ATS Match
+
+Job-specific candidate fit
+
+Excellent / Strong / Moderate / Low
+
+AI Interview
+
+Deeper technical/behavioral evaluation
+
+Recommended / Not Recommended / Pending
+
+Voice Screening
+
+Preliminary spoken screening
+
+Screened / Not Screened / Pending
+
+Recruiter Decision
+
+Final human decision
+
+Hired / Not Selected / In Progress / Pending
+
+This separation prevents one evaluation from incorrectly replacing another.
+
+🏗️ System Architecture
+
+                         USER / RECRUITER
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────┐
+│                        FRONTEND                             │
+│   HTML + CSS + JavaScript + Chart.js + Web Speech API     │
+└─────────────────────────────┬───────────────────────────────┘
+                              │ REST APIs
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      FASTAPI BACKEND                        │
+│                                                             │
+│ Candidates │ Jobs │ ATS │ AI Interview │ Voice Screening   │
+│ Dashboard │ Hiring Decision │ Resume Upload                │
+└───────────────────────┬───────────────────┬─────────────────┘
+                        │                   │
+                        ▼                   ▼
+             ┌─────────────────┐   ┌────────────────────────┐
+             │ SQLite +        │   │ AI / NLP               │
+             │ SQLAlchemy      │   │                        │
+             │                 │   │ Groq LLM               │
+             │ Candidates      │   │ spaCy                   │
+             │ Jobs            │   │ PDF/DOCX extraction     │
+             │ Sessions        │   │ AI evaluation           │
+             │ Hiring status   │   └────────────────────────┘
+             └─────────────────┘
+
+🛠️ Technology Stack
+
+Frontend
+
+HTML5
+
+CSS3
+
+Vanilla JavaScript
+
+Chart.js
+
+Web Speech API
+
+Backend
+
+Python
+
+FastAPI
+
+SQLAlchemy
+
+REST APIs
+
+Database
+
+SQLite
+
+AI / NLP
+
+Groq API
+
+Current model: openai/gpt-oss-120b
+
+spaCy
+
+PDF/DOCX extraction
+
+Deployment
+
+Git
+
+GitHub
+
+Render
+
+📂 Project Structure
+
+AI Driven Smart Hiring Platform With Canditate Matching Copilot/
 │
 ├── app/
-│   ├── main.py
-│   ├── database.py
-│   │
-│   ├── routes/
-│   │   ├── upload.py
-│   │   ├── candidate.py
-│   │   ├── job.py
-│   │   └── matching.py
-│   │
-│   ├── services/
-│   │   ├── parser.py
-│   │   ├── extractor.py
-│   │   └── ...
-│   │
-│   ├── models/
-│   └── schemas/
+│   ├── models/              # Database entities/models
+│   ├── routes/              # FastAPI API endpoints
+│   ├── schemas/             # Request/response validation
+│   ├── services/            # Business logic, AI and NLP services
+│   ├── database.py          # Database configuration
+│   └── main.py              # FastAPI application entry point
 │
 ├── frontend/
-│   ├── index.html
-│   ├── script.js
-│   └── style.css
+│   ├── index.html           # Main application UI
+│   ├── script.js            # Frontend logic and API integration
+│   └── style.css            # Frontend styling
 │
-├── uploads/
-├── extracted_data/
-├── .env
 ├── requirements.txt
+├── recruitment.db           # Local SQLite database
 └── README.md
-```
 
----
+🔄 Main Workflow
 
-# 15. Key Challenges
+Resume → Candidate
 
-## Milestone 1
-
-* Different resume layouts and formatting
-* Incorrect name extraction
-* Missing candidate information
-* Resume parsing inconsistencies
-* Database data-type issues
-* Maintaining accuracy across different resume structures
-
-## Milestone 2
-
-* AI response-format inconsistencies
-* Groq API quota/rate-limit issues
-* Distinguishing explicit skills from inferred skills
-* Determining Basic/Intermediate/Expert proficiency
-* Handling missing skills
-* Handling skills that exist but are below the required level
-* Designing a meaningful candidate scoring system
-
----
-
-# 16. Current Status
-
-### ✅ Milestone 1 — Completed
-
-**Resume Parsing & Candidate Profiling**
-
-Implemented:
-
-* Resume upload
-* PDF/DOCX processing
-* Candidate information extraction
-* Structured candidate profiles
-* Database storage
-* Candidate APIs
-* Frontend candidate display
-
-### ✅ Milestone 2 — Completed
-
-**Candidate Matching & Skill-Gap Analysis**
-
-Implemented:
-
-* Job requirements
-* Required experience
-* Required skills
-* Skill proficiency levels
-* Candidate-job matching
-* Groq + LLM skill analysis
-* Basic/Intermediate/Expert classification
-* Explicit/Inferred/Missing status
-* Hiring score
-* Candidate ranking
-* Skill-gap analysis
-
----
-
-# 17. Future Scope
-
-Possible future improvements include:
-
-* Automated interview scheduling
-* Advanced candidate recommendation
-* Recruiter analytics dashboard
-* Interview feedback analysis
-* Email/notification automation
-* Improved semantic resume understanding
-* Advanced AI-assisted recruitment workflows
-
----
-
-## Project Status
-
-**Milestones 1 & 2 Completed**
-
-The current core pipeline is:
-
-```text
-Resume
-   ↓
+Resume Upload
+     ↓
+PDF/DOCX Extraction
+     ↓
+NLP / Structured Parsing
+     ↓
 Candidate Profile
-   ↓
-Job Requirements
-   ↓
-AI Skill Analysis
-   ↓
-Candidate Matching
-   ↓
-Hiring Score
-   ↓
-Candidate Ranking
-   ↓
-Skill Gap Analysis
-```
+     ↓
+SQLite Persistence
 
+Candidate → Job Matching
 
+Candidate Profile + Job Requirements
+                ↓
+       Deterministic ATS Matching
+                ↓
+         Match Score / Tier
+                ↓
+           Skill Gap Analysis
+
+AI Interview
+
+Candidate + Job Context
+        ↓
+AI Question Generation
+        ↓
+Candidate Answers
+        ↓
+Maximum 7 Questions
+        ↓
+Final Assessment
+        ↓
+Recommended / Not Recommended
+
+Voice Screening
+
+Candidate + Job Context
+        ↓
+AI Screening Question
+        ↓
+SpeechSynthesis
+        ↓
+Candidate Speaks
+        ↓
+SpeechRecognition
+        ↓
+Transcript
+        ↓
+Candidate presses Submit Answer
+        ↓
+Maximum 5 Questions
+        ↓
+Preliminary Assessment
+        ↓
+Screened / Not Screened
+
+Final Recruiter Decision
+
+Resume/Profile
+     ↓
+ATS Match + Skill Gap
+     ↓
+AI Interview (if completed)
+     ↓
+Voice Screening (if completed)
+     ↓
+Recruiter Review
+     ↓
+Hired / Not Selected / In Progress / Pending
+
+⚙️ Installation & Local Setup
+
+1. Clone the repository
+
+git clone <YOUR_GITHUB_REPOSITORY_URL>
+cd "AI Driven Smart Hiring Platform With Canditate Matching Copilot"
+
+2. Create a virtual environment
+
+Windows PowerShell:
+
+python -m venv venv
+venv\Scripts\Activate.ps1
+
+3. Install dependencies
+
+pip install -r requirements.txt
+
+If the current resume extraction setup uses the large spaCy English model:
+
+python -m spacy download en_core_web_lg
+
+4. Configure the Groq API key
+
+Set the environment variable used by the project, for example:
+
+GROQ_API_KEY=your_key_here
+
+Never commit real API keys or .env secrets to GitHub.
+
+5. Start the backend
+
+uvicorn app.main:app --reload
+
+Local backend:
+
+http://127.0.0.1:8000
+
+Swagger:
+
+http://127.0.0.1:8000/docs
+
+6. Start the frontend
+
+Serve the frontend/ directory using your preferred local static server.
+
+For local development, ensure the frontend API configuration points to the intended backend.
+
+🌐 Production Deployment
+
+The application is deployed as a GitHub-connected Render service.
+
+Backend start command
+
+uvicorn app.main:app --host 0.0.0.0 --port $PORT
+
+Production API base URL
+
+https://ai-driven-smart-hiring-platform-with-2q4r.onrender.com
+
+The production frontend must use the deployed API URL rather than localhost or 127.0.0.1.
+
+Deployment flow
+
+VS Code
+  ↓
+git add .
+  ↓
+git commit
+  ↓
+git push
+  ↓
+GitHub
+  ↓
+Render Build
+  ↓
+Render Deploy
+  ↓
+Live Application
+
+🧪 Testing Checklist
+
+Before deployment, verify:
+
+Resume upload works.
+
+PDF/DOCX extraction works.
+
+Missing names are handled safely.
+
+Candidate profile persists correctly.
+
+Job creation works.
+
+Basic/Intermediate/Advanced skill levels work.
+
+ATS matching returns the correct job-specific result.
+
+Skill Gap Analysis works.
+
+AI Interview supports a maximum of 7 questions.
+
+AI Interview shows Recommended/Not Recommended/Pending.
+
+Empty interview answers do not receive free positive marks.
+
+Voice Screening supports a maximum of 5 questions.
+
+Natural pauses do not automatically submit voice answers.
+
+Save & Evaluate works with submitted answers.
+
+Voice Screening shows Screened/Not Screened/Pending.
+
+Dashboard loads real project data.
+
+Recruiter Hiring Decision updates correctly.
+
+Production frontend does not call localhost:8000.
+
+Groq failures are handled gracefully.
+
+🧱 Four Development Milestones
+
+Milestone 1 — Resume Parsing & Candidate Profiling
+
+Established the candidate foundation by extracting structured information from uploaded resumes and creating reusable candidate profiles.
+
+Milestone 2 — Job Management & ATS Matching
+
+Connected candidates to role requirements, introduced Basic / Intermediate / Advanced skill proficiency levels, deterministic ATS matching, match tiers, and skill-gap analysis.
+
+Milestone 3 — AI Interview Assistant
+
+Introduced a deeper text-based technical/behavioral interview with contextual questions, stored assessments, and recruiter-facing recommendations.
+
+Milestone 4 — Voice Screening, Dashboard & Hiring Decision
+
+Added preliminary browser-based voice screening, transcript-based assessment, dashboard analytics, and recruiter-controlled final hiring status.
+
+🔐 Design & Reliability Principles
+
+Human-in-the-loop
+
+AI provides supporting evidence; the recruiter controls the final hiring decision.
+
+Deterministic core matching
+
+ATS matching remains deterministic and job-specific rather than relying on an LLM for every match calculation.
+
+Independent evaluation layers
+
+ATS, AI Interview, Voice Screening, and Recruiter Hiring Decision remain separate concepts.
+
+Real data
+
+Dashboard and candidate status information are based on actual application records rather than fabricated recruitment metrics.
+
+Graceful AI fallback
+
+AI-service failures should result in user-friendly temporary-unavailability behavior rather than fabricated scores or raw server failures.
+
+🔮 Future Scope
+
+Potential future extensions include:
+
+Richer candidate search and filtering
+
+Interview scheduling and calendar integration
+
+Role-specific assessment templates
+
+Expanded recruiter collaboration
+
+Stronger production data persistence
+
+Additional audit and analytics capabilities
+
+👤 Author
+
+Pravesh Nirmal
+Individual Project · Artificial Intelligence (AI)
+Infosys Springboard Virtual Internship 7.0
+
+📄 Project Note
+
+This repository contains an academic/internship implementation of an AI-assisted recruitment decision-support platform. The project is intended to demonstrate full-stack engineering, NLP, AI integration, candidate matching, voice interaction, analytics, testing, and deployment.
