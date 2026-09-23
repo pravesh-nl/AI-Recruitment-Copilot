@@ -57,6 +57,50 @@ def normalize_skill(skill):
 
 
 # ============================================================
+# PROFICIENCY RANK — ordered skill level scale
+# ============================================================
+
+PROFICIENCY_RANK = {
+    "basic":        1,
+    "beginner":     1,
+    "intermediate": 2,
+    "advanced":     3,
+    "expert":       3,
+}
+
+
+def meets_proficiency(candidate_level, required_level):
+    """
+    Return True when candidate_level satisfies required_level
+    using the ordered proficiency scale.
+
+    Rules:
+      - candidate_rank >= required_rank  → True (fulfilled)
+      - candidate_rank <  required_rank  → False (level gap)
+      - unknown / None / empty on either side → False (safe default)
+
+    Comparison is case-insensitive and whitespace-safe.
+    """
+
+    candidate_rank = PROFICIENCY_RANK.get(
+        str(candidate_level).strip().lower()
+        if candidate_level is not None
+        else ""
+    )
+
+    required_rank = PROFICIENCY_RANK.get(
+        str(required_level).strip().lower()
+        if required_level is not None
+        else ""
+    )
+
+    if candidate_rank is None or required_rank is None:
+        return False
+
+    return candidate_rank >= required_rank
+
+
+# ============================================================
 # CANDIDATE SKILLS
 # ============================================================
 
@@ -391,34 +435,40 @@ def infer_skill_level_from_analysis(skill_analysis):
 # ============================================================
 # CALCULATE SKILL LEVEL SCORE
 # ============================================================
+# Uses PROFICIENCY_RANK (defined above) so the same ordered
+# scale drives both meets_proficiency() and numeric scoring.
 # ============================================================
-# SKILL LEVEL VALUES
-# ============================================================
-
-SKILL_LEVELS = {
-    "basic": 1,
-    "beginner": 1,
-    "intermediate": 2,
-    "advanced": 3,
-    "expert": 4
-}
 
 def calculate_level_score(
     candidate_level,
     required_level
 ):
+    """
+    Return a numeric score in [0.0, 1.0].
 
-    candidate_value = SKILL_LEVELS.get(
-        candidate_level.lower(),
-        1
+    1.0  → candidate meets or exceeds the required level
+    <1.0 → partial credit proportional to rank gap
+    0.0  → candidate level is unknown / not recognised
+    """
+
+    # Unknown levels get rank 0 (no credit), not rank 1.
+    candidate_value = PROFICIENCY_RANK.get(
+        str(candidate_level).strip().lower()
+        if candidate_level is not None else "",
+        0
     )
 
-    required_value = SKILL_LEVELS.get(
-        required_level.lower(),
+    # Unknown required level defaults to rank 1 (Basic).
+    required_value = PROFICIENCY_RANK.get(
+        str(required_level).strip().lower()
+        if required_level is not None else "",
         1
     )
 
     if candidate_value >= required_value:
+        return 1.0
+
+    if required_value == 0:
         return 1.0
 
     return candidate_value / required_value
@@ -430,6 +480,10 @@ def calculate_match(candidate, job):
 
     matched_skills = []
     missing_skills = []
+
+    # Skills that are present but below the required proficiency level.
+    # Kept separate from missing_skills (completely absent skills).
+    level_gap_skills = []
 
     total_skill_score = 0
 
@@ -638,6 +692,13 @@ def calculate_match(candidate, job):
         # Store matched skill
         # ----------------------------------------------------
 
+        # Determine whether the candidate's level satisfies the requirement
+        # using the centralized ordered-rank helper.
+        skill_fulfilled = meets_proficiency(
+            candidate_level,
+            required_level
+        )
+
         matched_skills.append({
 
             "name":
@@ -649,13 +710,11 @@ def calculate_match(candidate, job):
             "candidate_level":
                 candidate_level,
 
+            # True when candidate_rank >= required_rank.
+            # Replaces the former whitelist which only allowed
+            # "advanced" / "expert" as exceeding values.
             "level_match":
-                candidate_level.lower()
-                in [
-                    required_level.lower(),
-                    "advanced",
-                    "expert"
-                ],
+                skill_fulfilled,
 
             "status":
                 status,
@@ -666,6 +725,31 @@ def calculate_match(candidate, job):
             "evidence":
                 evidence
         })
+
+        # If the skill is present but the proficiency level is too low,
+        # record it as a level gap (distinct from a completely missing skill).
+        if not skill_fulfilled:
+
+            level_gap_skills.append({
+
+                "name":
+                    skill_name,
+
+                "required_level":
+                    required_level,
+
+                "candidate_level":
+                    candidate_level,
+
+                "evidence":
+                    evidence,
+
+                "confidence":
+                    confidence,
+
+                "status":
+                    "level_gap"
+            })
 
     # --------------------------------------------------------
     # Skill Score = 80%
@@ -778,8 +862,14 @@ def calculate_match(candidate, job):
         "hiring_status":
             candidate.hiring_status,
 
+        # level_gap_skills: skill present but candidate rank < required rank.
+        # missing_skills:   skill completely absent from candidate's profile.
+        # skill_gap:        union of both — everything blocking a full match.
+        "level_gap_skills":
+            level_gap_skills,
+
         "skill_gap":
-            missing_skills
+            missing_skills + level_gap_skills
     }
 
 
@@ -789,9 +879,11 @@ def calculate_match(candidate, job):
 
 def generate_skill_gap(result):
 
+    # Use the combined skill_gap list (missing + level gaps) so that
+    # generate_skill_gap reflects the full picture, not just absent skills.
     missing_skills = result.get(
-        "missing_skills",
-        []
+        "skill_gap",
+        result.get("missing_skills", [])
     )
 
     if not missing_skills:
